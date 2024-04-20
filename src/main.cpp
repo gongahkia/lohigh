@@ -68,7 +68,7 @@ bool combineSoundFiles(const char* inputFile1, const char* inputFile2, const cha
 
 int main(int argc, char* argv[]) {
 
-    const char* defaultInputFile1 = "asset/ambient.wav"; 
+    const char* defaultInputFile1 = "../asset/ambient.wav"; 
     const char* inputFile1;
     const char* inputFile2;
     const char* outputFile;
