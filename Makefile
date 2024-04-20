@@ -9,6 +9,7 @@ build: src/main.cpp
 
 config:
 	@sudo apt upgrade && sudo apt update && sudo apt autoremove
+	@sudo apt-get install libsndfile1-dev
 	@sudo apt install gcc g++ clangd
 
 up:
