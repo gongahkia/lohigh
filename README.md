@@ -1,6 +1,6 @@
 ## `lohigh`
 
-DJ Sacabambaspis takes any soundclip *(.wav)* and makes it lo-fi.
+DJ Sacabambaspis takes any soundclip *(.wav)* and makes it lofi.
 
 ![](asset/fish.jpg)
 
@@ -17,6 +17,6 @@ $ make config
 ```console
 $ make
 $ cd src
-$ ./lohigh input.wav output.wav # DJ Sacabambaspis mixes up a lo-fi beat 
+$ ./lohigh input.wav output.wav # DJ Sacabambaspis mixes up a lofi beat 
 $ ./lohigh input1.wav input2.wav output.wav # You are the DJ. 
 ```
