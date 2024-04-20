@@ -1,4 +1,8 @@
-`make everything lo-fi`
+## `lohigh`
+
+Takes any soundclip and makes it lo-fi
+
+> approved formats: mp3, wav
 
 ![](asset/fish.jpg)
 
