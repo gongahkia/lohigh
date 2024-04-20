@@ -18,5 +18,5 @@ $ make config
 $ make
 $ cd src
 $ ./lohigh input.wav output.wav # DJ Sacabambaspis mixes up a lofi beat 
-$ ./lohigh input1.wav input2.wav output.wav # You are the DJ. 
+$ ./lohigh input1.wav input2.wav output.wav # You are the DJ
 ```
