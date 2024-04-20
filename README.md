@@ -1,4 +1,6 @@
-## `lohigh`
+![](https://img.shields.io/badge/lohigh_1.0-passing-green)
+
+# `lohigh`
 
 DJ Sacabambaspis takes any soundclip *(.wav)* and makes it lofi.
 
