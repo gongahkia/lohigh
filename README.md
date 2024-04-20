@@ -7,7 +7,7 @@ DJ Sacabambaspis takes any soundclip *(.wav)* and makes it lofi.
 ## installation
 
 ```console
-$ git clone 
+$ git clone https://github.com/gongahkia/lohigh
 $ cd lohigh
 $ make config
 ```
