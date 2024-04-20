@@ -60,7 +60,7 @@ bool combineSoundFiles(const char* inputFile1, const char* inputFile2, const cha
     sf_close(inputSndFile2);
     sf_close(outputSndFile);
 
-    std::cout << "DJ Sacabambaspis has successfully made your sound lo-fi." << outputFile << std::endl;
+    std::cout << "DJ Sacabambaspis has successfully made your sound lofi." << outputFile << std::endl;
     return true;
 }
 
