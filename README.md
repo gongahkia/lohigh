@@ -2,7 +2,7 @@
 
 # `lohigh`
 
-DJ Sacabambaspis takes any soundclip *(.wav)* and makes it lofi.
+DJ Sacabambaspis lets you take lofi on the go.
 
 ![](asset/fish.jpg)
 
