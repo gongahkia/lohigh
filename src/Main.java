@@ -438,6 +438,7 @@ public class Main {
      *        - --force flag: allows overwriting existing files without prompting
      *        - --fade=<duration> flag: applies crossfade with specified duration (e.g., --fade=1.5)
      *        - --level=<target> flag: normalizes audio to target level (e.g., --level=0.8)
+     *        - --batch flag: batch process multiple files with --output-dir
      */
     public static void main(String[] args) {
         String inputFile1 = null;
@@ -446,10 +447,14 @@ public class Main {
         boolean forceOverwrite = false;
         double fadeDuration = 0.0; // Default: no crossfade
         double normalizeLevel = 0.8; // Default: normalize to 80%
+        boolean batchMode = false;
+        String outputDir = "./";
+        java.util.ArrayList<String> batchFiles = new java.util.ArrayList<>();
 
         // Parse flags and file arguments
         int fileArgCount = 0;
-        String[] fileArgs = new String[3];
+        java.util.ArrayList<String> fileArgsList = new java.util.ArrayList<>();
+
         for (String arg : args) {
             if ("--force".equals(arg)) {
                 forceOverwrite = true;
@@ -485,12 +490,75 @@ public class Main {
                 }
             } else if ("--no-normalize".equals(arg)) {
                 normalizeLevel = -1.0; // Disable normalization
+            } else if ("--batch".equals(arg)) {
+                batchMode = true;
+            } else if (arg.startsWith("--output-dir=")) {
+                outputDir = arg.substring(13);
             } else {
-                if (fileArgCount < 3) {
-                    fileArgs[fileArgCount++] = arg;
-                }
+                fileArgsList.add(arg);
             }
         }
+
+        // Handle batch mode
+        if (batchMode) {
+            if (fileArgsList.size() < 1) {
+                System.err.println("error: batch mode requires at least one input file");
+                System.err.println("usage: java Main --batch file1.wav file2.wav file3.wav --output-dir=./mixed/");
+                System.exit(1);
+            }
+
+            // Create output directory if it doesn't exist
+            File outputDirFile = new File(outputDir);
+            if (!outputDirFile.exists()) {
+                if (!outputDirFile.mkdirs()) {
+                    System.err.println("error: could not create output directory: " + outputDir);
+                    System.exit(1);
+                }
+            }
+
+            System.out.println("Batch processing " + fileArgsList.size() + " file(s)...");
+            int successCount = 0;
+            int failCount = 0;
+
+            for (String inputFile : fileArgsList) {
+                // Generate output filename
+                File inFile = new File(inputFile);
+                String baseName = inFile.getName();
+                int dotIndex = baseName.lastIndexOf('.');
+                if (dotIndex > 0) {
+                    baseName = baseName.substring(0, dotIndex);
+                }
+                String outFileName = baseName + "_lofi.wav";
+                String outFilePath = new File(outputDir, outFileName).getPath();
+
+                System.out.println("\n[" + (successCount + failCount + 1) + "/" + fileArgsList.size() + "] Processing: " + inputFile);
+
+                // Check if output exists
+                if (new File(outFilePath).exists() && !forceOverwrite) {
+                    System.err.println("  Skipping: output file already exists (use --force to overwrite)");
+                    failCount++;
+                    continue;
+                }
+
+                // Process file
+                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel)) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            }
+
+            System.out.println("\n=== Batch processing complete ===");
+            System.out.println("  Successful: " + successCount);
+            System.out.println("  Failed: " + failCount);
+            System.out.println("  Total: " + fileArgsList.size());
+
+            System.exit(failCount > 0 ? 1 : 0);
+        }
+
+        // Normal (non-batch) mode
+        fileArgCount = fileArgsList.size();
+        String[] fileArgs = fileArgsList.toArray(new String[0]);
 
         if (fileArgCount == 3) {
             // All arguments provided by user
@@ -505,14 +573,19 @@ public class Main {
         } else {
             // Error: incorrect number of arguments
             System.err.println("DJ Sacabambaspis cannot make music because there are an incorrect number of files.");
-            System.err.println("Provide either 2 or 3 arguments in the following format:");
-            System.err.println("  java Main <input_file1.wav> <input_file2.wav> <output_file.wav>");
-            System.err.println("  java Main <input_file2.wav> <output_file.wav>");
+            System.err.println("\nUsage:");
+            System.err.println("  Single file mode:");
+            System.err.println("    java Main <input_file1.wav> <input_file2.wav> <output_file.wav>");
+            System.err.println("    java Main <input_file2.wav> <output_file.wav>");
+            System.err.println("\n  Batch mode:");
+            System.err.println("    java Main --batch file1.wav file2.wav ... [--output-dir=DIR]");
             System.err.println("\nOptional flags:");
             System.err.println("  --force            Overwrite output file if it already exists");
             System.err.println("  --fade=<seconds>   Apply crossfade between files (e.g., --fade=1.5)");
             System.err.println("  --level=<0.0-1.0>  Normalize audio to target level (default: 0.8)");
             System.err.println("  --no-normalize     Disable automatic volume normalization");
+            System.err.println("  --batch            Enable batch processing mode");
+            System.err.println("  --output-dir=DIR   Output directory for batch mode (default: ./)");
             System.exit(1);
         }
 
