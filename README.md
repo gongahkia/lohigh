@@ -1,4 +1,6 @@
-![](https://img.shields.io/badge/lohigh_1.0-passing-green)
+![](https://img.shields.io/badge/lohigh_1.0-passing-light_green)
+![](https://img.shields.io/badge/lohigh_2.0-passing-green)
+![](https://img.shields.io/badge/lohigh_3.0-java-orange)
 
 # `lohigh`
 
@@ -17,7 +19,12 @@ $ make config
 ## usage
 
 ```console
-$ make
-$ ./lohigh input.wav output.wav # DJ Sacabambaspis mixes up a lofi beat 
-$ ./lohigh input1.wav input2.wav output.wav # You are the DJ
+$ make build
+$ java -cp src Main input.wav output.wav # DJ Sacabambaspis mixes up a lofi beat
+$ java -cp src Main input1.wav input2.wav output.wav # You are the DJ
 ```
+
+## requirements
+
+- Java 8 or higher
+- No external dependencies (uses standard `javax.sound.sampled` library)
