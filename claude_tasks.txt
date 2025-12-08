@@ -10,6 +10,12 @@ Project Philosophy Alignment:
 - Focus on "do one thing well" with professional polish
 
 ================================================================================
+CATEGORY 0: FOUNDATIONAL LANGUAGE CHANGE, TO PRIORITISE FIRST
+================================================================================
+
+0.0 MOVE FROM C++ TO JAVA PROGRAM 
+
+================================================================================
 CATEGORY 1: AUDIO QUALITY & PROFESSIONAL OUTPUT
 ================================================================================
 
