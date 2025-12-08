@@ -41,6 +41,39 @@ public class Main {
     }
 
     /**
+     * Prints a progress bar.
+     *
+     * @param current Current progress value
+     * @param total Total value
+     * @param operation Description of operation
+     */
+    private static void printProgress(long current, long total, String operation) {
+        if (verbosity < 1) return; // Don't show in quiet mode
+
+        int percent = (int) ((current * 100) / total);
+        int barLength = 40;
+        int filled = (int) ((current * barLength) / total);
+
+        StringBuilder bar = new StringBuilder("[");
+        for (int i = 0; i < barLength; i++) {
+            if (i < filled) {
+                bar.append("=");
+            } else if (i == filled) {
+                bar.append(">");
+            } else {
+                bar.append(" ");
+            }
+        }
+        bar.append("]");
+
+        // Use \r to overwrite the same line
+        System.out.print("\r" + operation + ": " + bar + " " + percent + "%");
+        if (current >= total) {
+            System.out.println(); // New line when complete
+        }
+    }
+
+    /**
      * Validates an input audio file for common issues.
      *
      * @param filePath Path to the audio file to validate
@@ -425,10 +458,20 @@ public class Main {
             int bytesRead;
             long bytesReadTotal1 = 0;
             long maxBytes1 = maxFrames1 * format.getFrameSize();
+            long file1ActualSize = new File(inputFile1).length();
+            boolean showProgress1 = file1ActualSize > 10 * 1024 * 1024; // Show for files > 10MB
+
             while ((bytesRead = audioStream1.read(tempBuffer)) != -1 && bytesReadTotal1 < maxBytes1) {
                 int toWrite = (int)Math.min(bytesRead, maxBytes1 - bytesReadTotal1);
                 buffer1.write(tempBuffer, 0, toWrite);
                 bytesReadTotal1 += toWrite;
+
+                if (showProgress1 && bytesReadTotal1 % (1024 * 1024) == 0) { // Update every MB
+                    printProgress(bytesReadTotal1, Math.min(maxBytes1, file1ActualSize), "Reading file 1");
+                }
+            }
+            if (showProgress1) {
+                printProgress(bytesReadTotal1, Math.min(maxBytes1, file1ActualSize), "Reading file 1");
             }
             byte[] audio1 = buffer1.toByteArray();
 
@@ -436,10 +479,20 @@ public class Main {
             ByteArrayOutputStream buffer2 = new ByteArrayOutputStream();
             long bytesReadTotal2 = 0;
             long maxBytes2 = maxFrames2 * format.getFrameSize();
+            long file2ActualSize = new File(inputFile2).length();
+            boolean showProgress2 = file2ActualSize > 10 * 1024 * 1024; // Show for files > 10MB
+
             while ((bytesRead = audioStream2.read(tempBuffer)) != -1 && bytesReadTotal2 < maxBytes2) {
                 int toWrite = (int)Math.min(bytesRead, maxBytes2 - bytesReadTotal2);
                 buffer2.write(tempBuffer, 0, toWrite);
                 bytesReadTotal2 += toWrite;
+
+                if (showProgress2 && bytesReadTotal2 % (1024 * 1024) == 0) { // Update every MB
+                    printProgress(bytesReadTotal2, Math.min(maxBytes2, file2ActualSize), "Reading file 2");
+                }
+            }
+            if (showProgress2) {
+                printProgress(bytesReadTotal2, Math.min(maxBytes2, file2ActualSize), "Reading file 2");
             }
             byte[] audio2 = buffer2.toByteArray();
 
