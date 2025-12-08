@@ -111,14 +111,69 @@ public class Main {
     }
 
     /**
+     * Applies linear crossfade between two audio byte arrays.
+     *
+     * @param fadeBuffer1 The ending portion of the first audio file
+     * @param fadeBuffer2 The starting portion of the second audio file
+     * @param format Audio format for sample interpretation
+     * @return Crossfaded audio bytes
+     */
+    private static byte[] applyCrossfade(byte[] fadeBuffer1, byte[] fadeBuffer2, AudioFormat format) {
+        int fadeLength = Math.min(fadeBuffer1.length, fadeBuffer2.length);
+        byte[] result = new byte[fadeLength];
+
+        int bytesPerSample = format.getSampleSizeInBits() / 8;
+        boolean bigEndian = format.isBigEndian();
+
+        for (int i = 0; i < fadeLength; i += bytesPerSample) {
+            // Calculate fade factor (0.0 to 1.0)
+            float fadeFactor = (float) i / fadeLength;
+
+            // Read samples from both buffers
+            int sample1 = 0, sample2 = 0;
+
+            if (bytesPerSample == 2) {
+                // 16-bit audio
+                if (bigEndian) {
+                    sample1 = (fadeBuffer1[i] << 8) | (fadeBuffer1[i + 1] & 0xFF);
+                    sample2 = (fadeBuffer2[i] << 8) | (fadeBuffer2[i + 1] & 0xFF);
+                } else {
+                    sample1 = (fadeBuffer1[i + 1] << 8) | (fadeBuffer1[i] & 0xFF);
+                    sample2 = (fadeBuffer2[i + 1] << 8) | (fadeBuffer2[i] & 0xFF);
+                }
+            }
+
+            // Apply crossfade: fade out first, fade in second
+            int mixed = (int) ((sample1 * (1.0f - fadeFactor)) + (sample2 * fadeFactor));
+
+            // Clamp to 16-bit range
+            mixed = Math.max(-32768, Math.min(32767, mixed));
+
+            // Write back to result buffer
+            if (bytesPerSample == 2) {
+                if (bigEndian) {
+                    result[i] = (byte) (mixed >> 8);
+                    result[i + 1] = (byte) (mixed & 0xFF);
+                } else {
+                    result[i] = (byte) (mixed & 0xFF);
+                    result[i + 1] = (byte) (mixed >> 8);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Combines two sound files into one output file by concatenating them.
      *
      * @param inputFile1 Path to the first input WAV file
      * @param inputFile2 Path to the second input WAV file
      * @param outputFile Path to the output WAV file
+     * @param fadeDurationSeconds Duration of crossfade in seconds (0 for no crossfade)
      * @return true if successful, false otherwise
      */
-    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile) {
+    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds) {
         // Validate input files
         if (!validateInputFile(inputFile1)) {
             return false;
@@ -129,7 +184,7 @@ public class Main {
 
         AudioInputStream audioStream1 = null;
         AudioInputStream audioStream2 = null;
-        AudioInputStream appendedStream = null;
+        ByteArrayOutputStream outputBuffer = new ByteArrayOutputStream();
 
         try {
             // Read first file
@@ -174,16 +229,67 @@ public class Main {
                 return false;
             }
 
-            // Concatenate the audio streams
-            appendedStream = new AudioInputStream(
-                new SequenceInputStream(audioStream1, audioStream2),
-                format,
-                audioStream1.getFrameLength() + audioStream2.getFrameLength()
-            );
+            // Calculate fade length in bytes
+            int fadeFrames = (int) (fadeDurationSeconds * format.getSampleRate());
+            int fadeLengthBytes = fadeFrames * format.getFrameSize();
 
-            // Write to output file
+            // Read entire first file into buffer
+            ByteArrayOutputStream buffer1 = new ByteArrayOutputStream();
+            byte[] tempBuffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = audioStream1.read(tempBuffer)) != -1) {
+                buffer1.write(tempBuffer, 0, bytesRead);
+            }
+            byte[] audio1 = buffer1.toByteArray();
+
+            // Read entire second file into buffer
+            ByteArrayOutputStream buffer2 = new ByteArrayOutputStream();
+            while ((bytesRead = audioStream2.read(tempBuffer)) != -1) {
+                buffer2.write(tempBuffer, 0, bytesRead);
+            }
+            byte[] audio2 = buffer2.toByteArray();
+
+            if (fadeDurationSeconds > 0 && fadeLengthBytes > 0) {
+                // Apply crossfade
+                int fadeStart = Math.max(0, audio1.length - fadeLengthBytes);
+
+                // Write first file up to fade point
+                outputBuffer.write(audio1, 0, fadeStart);
+
+                // Extract fade regions
+                int actualFadeLength = Math.min(fadeLengthBytes, audio1.length - fadeStart);
+                actualFadeLength = Math.min(actualFadeLength, audio2.length);
+
+                byte[] fadeRegion1 = new byte[actualFadeLength];
+                byte[] fadeRegion2 = new byte[actualFadeLength];
+                System.arraycopy(audio1, fadeStart, fadeRegion1, 0, actualFadeLength);
+                System.arraycopy(audio2, 0, fadeRegion2, 0, actualFadeLength);
+
+                // Apply crossfade and write
+                byte[] crossfaded = applyCrossfade(fadeRegion1, fadeRegion2, format);
+                outputBuffer.write(crossfaded);
+
+                // Write remaining part of second file
+                outputBuffer.write(audio2, actualFadeLength, audio2.length - actualFadeLength);
+
+                if (fadeDurationSeconds > 0) {
+                    System.out.println("Applied " + fadeDurationSeconds + "s crossfade between files");
+                }
+            } else {
+                // No crossfade, simple concatenation
+                outputBuffer.write(audio1);
+                outputBuffer.write(audio2);
+            }
+
+            // Create output audio stream and write file
+            byte[] finalAudio = outputBuffer.toByteArray();
+            ByteArrayInputStream finalStream = new ByteArrayInputStream(finalAudio);
+            long frameLength = finalAudio.length / format.getFrameSize();
+            AudioInputStream finalAudioStream = new AudioInputStream(finalStream, format, frameLength);
+
             File outputFileObj = new File(outputFile);
-            AudioSystem.write(appendedStream, AudioFileFormat.Type.WAVE, outputFileObj);
+            AudioSystem.write(finalAudioStream, AudioFileFormat.Type.WAVE, outputFileObj);
+            finalAudioStream.close();
 
             System.out.println("DJ Sacabambaspis has successfully made your sound lofi: " + outputFile);
             return true;
@@ -201,9 +307,9 @@ public class Main {
         } finally {
             // Clean up resources
             try {
-                if (appendedStream != null) appendedStream.close();
                 if (audioStream1 != null) audioStream1.close();
                 if (audioStream2 != null) audioStream2.close();
+                outputBuffer.close();
             } catch (IOException e) {
                 System.err.println("warning: error closing streams - " + e.getMessage());
             }
@@ -217,19 +323,38 @@ public class Main {
      *        - 2 args: <input_file2.wav> <output_file.wav> (uses default ambient.wav as first file)
      *        - 3 args: <input_file1.wav> <input_file2.wav> <output_file.wav>
      *        - --force flag: allows overwriting existing files without prompting
+     *        - --fade=<duration> flag: applies crossfade with specified duration (e.g., --fade=1.5)
      */
     public static void main(String[] args) {
         String inputFile1 = null;
         String inputFile2 = null;
         String outputFile = null;
         boolean forceOverwrite = false;
+        double fadeDuration = 0.0; // Default: no crossfade
 
-        // Check for --force flag
+        // Parse flags and file arguments
         int fileArgCount = 0;
         String[] fileArgs = new String[3];
         for (String arg : args) {
             if ("--force".equals(arg)) {
                 forceOverwrite = true;
+            } else if (arg.startsWith("--fade=")) {
+                try {
+                    String fadeValue = arg.substring(7);
+                    // Remove 's' suffix if present (e.g., "1.5s" -> "1.5")
+                    if (fadeValue.endsWith("s")) {
+                        fadeValue = fadeValue.substring(0, fadeValue.length() - 1);
+                    }
+                    fadeDuration = Double.parseDouble(fadeValue);
+                    if (fadeDuration < 0) {
+                        System.err.println("error: fade duration must be positive");
+                        System.exit(1);
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("error: invalid fade duration format");
+                    System.err.println("suggestion: use --fade=1.5 or --fade=1.5s");
+                    System.exit(1);
+                }
             } else {
                 if (fileArgCount < 3) {
                     fileArgs[fileArgCount++] = arg;
@@ -254,7 +379,8 @@ public class Main {
             System.err.println("  java Main <input_file1.wav> <input_file2.wav> <output_file.wav>");
             System.err.println("  java Main <input_file2.wav> <output_file.wav>");
             System.err.println("\nOptional flags:");
-            System.err.println("  --force    Overwrite output file if it already exists");
+            System.err.println("  --force           Overwrite output file if it already exists");
+            System.err.println("  --fade=<seconds>  Apply crossfade between files (e.g., --fade=1.5)");
             System.exit(1);
         }
 
@@ -267,7 +393,7 @@ public class Main {
             System.exit(1);
         }
 
-        if (combineSoundFiles(inputFile1, inputFile2, outputFile)) {
+        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration)) {
             System.exit(0);
         } else {
             System.exit(1);
