@@ -11,6 +11,34 @@ public class Main {
     private static final String DEFAULT_INPUT_FILE1 = "../asset/ambient.wav";
     private static final long MAX_FILE_SIZE = 1024L * 1024L * 1024L; // 1GB default limit
 
+    // Verbosity levels
+    private static int verbosity = 1; // 0 = quiet, 1 = normal, 2 = verbose
+
+    /**
+     * Prints info message if verbosity level allows.
+     */
+    private static void printInfo(String message) {
+        if (verbosity >= 1) {
+            System.out.println(message);
+        }
+    }
+
+    /**
+     * Prints verbose message if verbosity level allows.
+     */
+    private static void printVerbose(String message) {
+        if (verbosity >= 2) {
+            System.out.println("[VERBOSE] " + message);
+        }
+    }
+
+    /**
+     * Prints error message (always shown).
+     */
+    private static void printError(String message) {
+        System.err.println(message);
+    }
+
     /**
      * Validates an input audio file for common issues.
      *
@@ -352,14 +380,14 @@ public class Main {
                 double peak1 = findPeakLevel(audio1, format);
                 double peak2 = findPeakLevel(audio2, format);
 
-                System.out.println("Pre-normalization levels:");
-                System.out.println("  File 1 peak: " + String.format("%.1f%%", peak1 * 100));
-                System.out.println("  File 2 peak: " + String.format("%.1f%%", peak2 * 100));
+                printVerbose("Pre-normalization levels:");
+                printVerbose("  File 1 peak: " + String.format("%.1f%%", peak1 * 100));
+                printVerbose("  File 2 peak: " + String.format("%.1f%%", peak2 * 100));
 
                 audio1 = normalizeAudio(audio1, format, normalizeLevel);
                 audio2 = normalizeAudio(audio2, format, normalizeLevel);
 
-                System.out.println("Normalized to target level: " + String.format("%.1f%%", normalizeLevel * 100));
+                printVerbose("Normalized to target level: " + String.format("%.1f%%", normalizeLevel * 100));
             }
 
             if (fadeDurationSeconds > 0 && fadeLengthBytes > 0) {
@@ -386,7 +414,7 @@ public class Main {
                 outputBuffer.write(audio2, actualFadeLength, audio2.length - actualFadeLength);
 
                 if (fadeDurationSeconds > 0) {
-                    System.out.println("Applied " + fadeDurationSeconds + "s crossfade between files");
+                    printVerbose("Applied " + fadeDurationSeconds + "s crossfade between files");
                 }
             } else {
                 // No crossfade, simple concatenation
@@ -404,7 +432,7 @@ public class Main {
             AudioSystem.write(finalAudioStream, AudioFileFormat.Type.WAVE, outputFileObj);
             finalAudioStream.close();
 
-            System.out.println("DJ Sacabambaspis has successfully made your sound lofi: " + outputFile);
+            printInfo("DJ Sacabambaspis has successfully made your sound lofi: " + outputFile);
             return true;
 
         } catch (UnsupportedAudioFileException e) {
@@ -461,6 +489,10 @@ public class Main {
                 forceOverwrite = true;
             } else if ("--reverse".equals(arg)) {
                 reverseMode = true;
+            } else if ("-v".equals(arg) || "--verbose".equals(arg)) {
+                verbosity = 2;
+            } else if ("-q".equals(arg) || "--quiet".equals(arg)) {
+                verbosity = 0;
             } else if (arg.startsWith("--fade=")) {
                 try {
                     String fadeValue = arg.substring(7);
@@ -519,7 +551,7 @@ public class Main {
                 }
             }
 
-            System.out.println("Batch processing " + fileArgsList.size() + " file(s)...");
+            printInfo("Batch processing " + fileArgsList.size() + " file(s)...");
             int successCount = 0;
             int failCount = 0;
 
@@ -534,7 +566,7 @@ public class Main {
                 String outFileName = baseName + "_lofi.wav";
                 String outFilePath = new File(outputDir, outFileName).getPath();
 
-                System.out.println("\n[" + (successCount + failCount + 1) + "/" + fileArgsList.size() + "] Processing: " + inputFile);
+                printInfo("\n[" + (successCount + failCount + 1) + "/" + fileArgsList.size() + "] Processing: " + inputFile);
 
                 // Check if output exists
                 if (new File(outFilePath).exists() && !forceOverwrite) {
@@ -551,10 +583,10 @@ public class Main {
                 }
             }
 
-            System.out.println("\n=== Batch processing complete ===");
-            System.out.println("  Successful: " + successCount);
-            System.out.println("  Failed: " + failCount);
-            System.out.println("  Total: " + fileArgsList.size());
+            printInfo("\n=== Batch processing complete ===");
+            printInfo("  Successful: " + successCount);
+            printInfo("  Failed: " + failCount);
+            printInfo("  Total: " + fileArgsList.size());
 
             System.exit(failCount > 0 ? 1 : 0);
         }
@@ -602,6 +634,8 @@ public class Main {
             System.err.println("  --level=<0.0-1.0>  Normalize audio to target level (default: 0.8)");
             System.err.println("  --no-normalize     Disable automatic volume normalization");
             System.err.println("  --reverse          Swap file order (beat after content, not before)");
+            System.err.println("  -v, --verbose      Show detailed processing information");
+            System.err.println("  -q, --quiet        Suppress all output except errors");
             System.err.println("  --batch            Enable batch processing mode");
             System.err.println("  --output-dir=DIR   Output directory for batch mode (default: ./)");
             System.exit(1);
