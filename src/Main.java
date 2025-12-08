@@ -298,9 +298,10 @@ public class Main {
      * @param fadeDurationSeconds Duration of crossfade in seconds (0 for no crossfade)
      * @param normalizeLevel Target normalization level (0.0 to 1.0, or -1 to disable)
      * @param dryRun If true, only show what would be done without processing
+     * @param previewDuration If > 0, only process first N seconds of each file
      * @return true if successful, false otherwise
      */
-    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds, double normalizeLevel, boolean dryRun) {
+    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds, double normalizeLevel, boolean dryRun, double previewDuration) {
         // Validate input files
         if (!validateInputFile(inputFile1)) {
             return false;
@@ -405,21 +406,45 @@ public class Main {
             int fadeFrames = (int) (fadeDurationSeconds * format.getSampleRate());
             int fadeLengthBytes = fadeFrames * format.getFrameSize();
 
-            // Read entire first file into buffer
+            // Calculate preview limit if needed
+            long maxFrames1 = audioStream1.getFrameLength();
+            long maxFrames2 = audioStream2.getFrameLength();
+            if (previewDuration > 0) {
+                long previewFrames = (long)(previewDuration * format.getSampleRate());
+                maxFrames1 = Math.min(maxFrames1, previewFrames);
+                maxFrames2 = Math.min(maxFrames2, previewFrames);
+                printVerbose("Preview mode: limiting to " + previewDuration + " seconds per file");
+                printVerbose("  File 1: " + maxFrames1 + " frames");
+                printVerbose("  File 2: " + maxFrames2 + " frames");
+            }
+
+            // Read first file into buffer (with preview limit)
             ByteArrayOutputStream buffer1 = new ByteArrayOutputStream();
             byte[] tempBuffer = new byte[8192];
             int bytesRead;
-            while ((bytesRead = audioStream1.read(tempBuffer)) != -1) {
-                buffer1.write(tempBuffer, 0, bytesRead);
+            long bytesReadTotal1 = 0;
+            long maxBytes1 = maxFrames1 * format.getFrameSize();
+            while ((bytesRead = audioStream1.read(tempBuffer)) != -1 && bytesReadTotal1 < maxBytes1) {
+                int toWrite = (int)Math.min(bytesRead, maxBytes1 - bytesReadTotal1);
+                buffer1.write(tempBuffer, 0, toWrite);
+                bytesReadTotal1 += toWrite;
             }
             byte[] audio1 = buffer1.toByteArray();
 
-            // Read entire second file into buffer
+            // Read second file into buffer (with preview limit)
             ByteArrayOutputStream buffer2 = new ByteArrayOutputStream();
-            while ((bytesRead = audioStream2.read(tempBuffer)) != -1) {
-                buffer2.write(tempBuffer, 0, bytesRead);
+            long bytesReadTotal2 = 0;
+            long maxBytes2 = maxFrames2 * format.getFrameSize();
+            while ((bytesRead = audioStream2.read(tempBuffer)) != -1 && bytesReadTotal2 < maxBytes2) {
+                int toWrite = (int)Math.min(bytesRead, maxBytes2 - bytesReadTotal2);
+                buffer2.write(tempBuffer, 0, toWrite);
+                bytesReadTotal2 += toWrite;
             }
             byte[] audio2 = buffer2.toByteArray();
+
+            if (previewDuration > 0) {
+                printInfo("Preview mode: processed " + previewDuration + " seconds from each file");
+            }
 
             // Apply normalization if enabled
             if (normalizeLevel > 0) {
@@ -546,6 +571,7 @@ public class Main {
         boolean batchMode = false;
         boolean reverseMode = false;
         boolean dryRun = false;
+        double previewDuration = 0.0; // 0 = no preview
         String outputDir = "./";
         java.util.ArrayList<String> batchFiles = new java.util.ArrayList<>();
 
@@ -564,6 +590,23 @@ public class Main {
                 verbosity = 0;
             } else if ("--dry-run".equals(arg)) {
                 dryRun = true;
+            } else if (arg.startsWith("--preview=")) {
+                try {
+                    String previewValue = arg.substring(10);
+                    // Remove 's' suffix if present (e.g., "30s" -> "30")
+                    if (previewValue.endsWith("s")) {
+                        previewValue = previewValue.substring(0, previewValue.length() - 1);
+                    }
+                    previewDuration = Double.parseDouble(previewValue);
+                    if (previewDuration <= 0) {
+                        System.err.println("error: preview duration must be positive");
+                        System.exit(1);
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("error: invalid preview duration format");
+                    System.err.println("suggestion: use --preview=30 or --preview=30s");
+                    System.exit(1);
+                }
             } else if (arg.startsWith("--fade=")) {
                 try {
                     String fadeValue = arg.substring(7);
@@ -647,7 +690,7 @@ public class Main {
                 }
 
                 // Process file
-                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel, dryRun)) {
+                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel, dryRun, previewDuration)) {
                     successCount++;
                 } else {
                     failCount++;
@@ -705,11 +748,12 @@ public class Main {
             System.err.println("  --level=<0.0-1.0>  Normalize audio to target level (default: 0.8)");
             System.err.println("  --no-normalize     Disable automatic volume normalization");
             System.err.println("  --reverse          Swap file order (beat after content, not before)");
-            System.err.println("  -v, --verbose      Show detailed processing information");
-            System.err.println("  -q, --quiet        Suppress all output except errors");
-            System.err.println("  --dry-run          Show what would be done without processing");
-            System.err.println("  --batch            Enable batch processing mode");
-            System.err.println("  --output-dir=DIR   Output directory for batch mode (default: ./)");
+            System.err.println("  -v, --verbose        Show detailed processing information");
+            System.err.println("  -q, --quiet          Suppress all output except errors");
+            System.err.println("  --dry-run            Show what would be done without processing");
+            System.err.println("  --preview=<seconds>  Process only first N seconds (e.g., --preview=30)");
+            System.err.println("  --batch              Enable batch processing mode");
+            System.err.println("  --output-dir=DIR     Output directory for batch mode (default: ./)");
             System.exit(1);
         }
 
@@ -722,7 +766,7 @@ public class Main {
             System.exit(1);
         }
 
-        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun)) {
+        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun, previewDuration)) {
             System.exit(0);
         } else {
             System.exit(1);
