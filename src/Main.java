@@ -474,12 +474,34 @@ public class Main {
             long frameLength = finalAudio.length / format.getFrameSize();
             AudioInputStream finalAudioStream = new AudioInputStream(finalStream, format, frameLength);
 
+            // Atomic file writing: write to temp file, then rename
             File outputFileObj = new File(outputFile);
-            AudioSystem.write(finalAudioStream, AudioFileFormat.Type.WAVE, outputFileObj);
-            finalAudioStream.close();
+            File tempFile = new File(outputFile + ".tmp");
 
-            printInfo("DJ Sacabambaspis has successfully made your sound lofi: " + outputFile);
-            return true;
+            try {
+                // Write to temporary file
+                printVerbose("Writing to temporary file: " + tempFile.getPath());
+                AudioSystem.write(finalAudioStream, AudioFileFormat.Type.WAVE, tempFile);
+                finalAudioStream.close();
+
+                // Atomic rename (moves temp file to final destination)
+                printVerbose("Atomically renaming to: " + outputFileObj.getPath());
+                if (outputFileObj.exists()) {
+                    outputFileObj.delete(); // Delete existing file first (for Windows compatibility)
+                }
+                if (!tempFile.renameTo(outputFileObj)) {
+                    throw new IOException("Failed to rename temporary file to output file");
+                }
+
+                printInfo("DJ Sacabambaspis has successfully made your sound lofi: " + outputFile);
+                return true;
+            } catch (IOException e) {
+                // Clean up temp file on failure
+                if (tempFile.exists()) {
+                    tempFile.delete();
+                }
+                throw e;
+            }
 
         } catch (UnsupportedAudioFileException e) {
             System.err.println("error: unsupported audio file format");
