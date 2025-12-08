@@ -448,6 +448,7 @@ public class Main {
         double fadeDuration = 0.0; // Default: no crossfade
         double normalizeLevel = 0.8; // Default: normalize to 80%
         boolean batchMode = false;
+        boolean reverseMode = false;
         String outputDir = "./";
         java.util.ArrayList<String> batchFiles = new java.util.ArrayList<>();
 
@@ -458,6 +459,8 @@ public class Main {
         for (String arg : args) {
             if ("--force".equals(arg)) {
                 forceOverwrite = true;
+            } else if ("--reverse".equals(arg)) {
+                reverseMode = true;
             } else if (arg.startsWith("--fade=")) {
                 try {
                     String fadeValue = arg.substring(7);
@@ -565,10 +568,24 @@ public class Main {
             inputFile1 = fileArgs[0];
             inputFile2 = fileArgs[1];
             outputFile = fileArgs[2];
+
+            // Apply reverse mode if requested
+            if (reverseMode) {
+                String temp = inputFile1;
+                inputFile1 = inputFile2;
+                inputFile2 = temp;
+            }
         } else if (fileArgCount == 2) {
             // Defaults to specified lofi file
-            inputFile1 = DEFAULT_INPUT_FILE1;
-            inputFile2 = fileArgs[0];
+            if (reverseMode) {
+                // Reverse mode: user file first, then ambient
+                inputFile1 = fileArgs[0];
+                inputFile2 = DEFAULT_INPUT_FILE1;
+            } else {
+                // Normal mode: ambient first, then user file
+                inputFile1 = DEFAULT_INPUT_FILE1;
+                inputFile2 = fileArgs[0];
+            }
             outputFile = fileArgs[1];
         } else {
             // Error: incorrect number of arguments
@@ -584,6 +601,7 @@ public class Main {
             System.err.println("  --fade=<seconds>   Apply crossfade between files (e.g., --fade=1.5)");
             System.err.println("  --level=<0.0-1.0>  Normalize audio to target level (default: 0.8)");
             System.err.println("  --no-normalize     Disable automatic volume normalization");
+            System.err.println("  --reverse          Swap file order (beat after content, not before)");
             System.err.println("  --batch            Enable batch processing mode");
             System.err.println("  --output-dir=DIR   Output directory for batch mode (default: ./)");
             System.exit(1);
