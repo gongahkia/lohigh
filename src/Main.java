@@ -1,6 +1,7 @@
 import javax.sound.sampled.*;
 import java.io.*;
 import java.nio.file.*;
+import java.util.Collections;
 
 /**
  * lohigh - DJ Sacabambaspis lets you take lofi on the go.
@@ -570,6 +571,7 @@ public class Main {
         double normalizeLevel = 0.8; // Default: normalize to 80%
         boolean batchMode = false;
         boolean reverseMode = false;
+        boolean shuffleMode = false;
         boolean dryRun = false;
         double previewDuration = 0.0; // 0 = no preview
         String outputDir = "./";
@@ -590,6 +592,8 @@ public class Main {
                 verbosity = 0;
             } else if ("--dry-run".equals(arg)) {
                 dryRun = true;
+            } else if ("--shuffle".equals(arg)) {
+                shuffleMode = true;
             } else if (arg.startsWith("--preview=")) {
                 try {
                     String previewValue = arg.substring(10);
@@ -654,6 +658,12 @@ public class Main {
                 System.err.println("error: batch mode requires at least one input file");
                 System.err.println("usage: java Main --batch file1.wav file2.wav file3.wav --output-dir=./mixed/");
                 System.exit(1);
+            }
+
+            // Shuffle files if requested
+            if (shuffleMode) {
+                Collections.shuffle(fileArgsList);
+                printVerbose("Shuffled file order for creative mixing");
             }
 
             // Create output directory if it doesn't exist
@@ -752,6 +762,7 @@ public class Main {
             System.err.println("  -q, --quiet          Suppress all output except errors");
             System.err.println("  --dry-run            Show what would be done without processing");
             System.err.println("  --preview=<seconds>  Process only first N seconds (e.g., --preview=30)");
+            System.err.println("  --shuffle            Randomize file order for creative mixing");
             System.err.println("  --batch              Enable batch processing mode");
             System.err.println("  --output-dir=DIR     Output directory for batch mode (default: ./)");
             System.exit(1);
