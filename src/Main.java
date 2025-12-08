@@ -297,15 +297,61 @@ public class Main {
      * @param outputFile Path to the output WAV file
      * @param fadeDurationSeconds Duration of crossfade in seconds (0 for no crossfade)
      * @param normalizeLevel Target normalization level (0.0 to 1.0, or -1 to disable)
+     * @param dryRun If true, only show what would be done without processing
      * @return true if successful, false otherwise
      */
-    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds, double normalizeLevel) {
+    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds, double normalizeLevel, boolean dryRun) {
         // Validate input files
         if (!validateInputFile(inputFile1)) {
             return false;
         }
         if (!validateInputFile(inputFile2)) {
             return false;
+        }
+
+        // Dry run mode: just show metadata and exit
+        if (dryRun) {
+            try {
+                File file1 = new File(inputFile1);
+                File file2 = new File(inputFile2);
+                AudioInputStream stream1 = AudioSystem.getAudioInputStream(file1);
+                AudioInputStream stream2 = AudioSystem.getAudioInputStream(file2);
+                AudioFormat fmt1 = stream1.getFormat();
+                AudioFormat fmt2 = stream2.getFormat();
+
+                printInfo("=== DRY RUN MODE ===");
+                printInfo("\nInput File 1: " + inputFile1);
+                printInfo("  Size: " + (file1.length() / 1024) + " KB");
+                printInfo("  Duration: " + String.format("%.2f", stream1.getFrameLength() / fmt1.getFrameRate()) + " seconds");
+                printInfo("  Sample Rate: " + (int)fmt1.getSampleRate() + " Hz");
+                printInfo("  Channels: " + fmt1.getChannels());
+                printInfo("  Bit Depth: " + fmt1.getSampleSizeInBits() + " bits");
+
+                printInfo("\nInput File 2: " + inputFile2);
+                printInfo("  Size: " + (file2.length() / 1024) + " KB");
+                printInfo("  Duration: " + String.format("%.2f", stream2.getFrameLength() / fmt2.getFrameRate()) + " seconds");
+                printInfo("  Sample Rate: " + (int)fmt2.getSampleRate() + " Hz");
+                printInfo("  Channels: " + fmt2.getChannels());
+                printInfo("  Bit Depth: " + fmt2.getSampleSizeInBits() + " bits");
+
+                long estimatedSize = file1.length() + file2.length();
+                printInfo("\nOutput File: " + outputFile);
+                printInfo("  Estimated Size: " + (estimatedSize / 1024) + " KB");
+                printInfo("  Estimated Duration: " + String.format("%.2f",
+                    (stream1.getFrameLength() + stream2.getFrameLength()) / fmt1.getFrameRate()) + " seconds");
+
+                printInfo("\nSettings:");
+                printInfo("  Crossfade: " + (fadeDurationSeconds > 0 ? fadeDurationSeconds + " seconds" : "disabled"));
+                printInfo("  Normalization: " + (normalizeLevel > 0 ? String.format("%.1f%%", normalizeLevel * 100) : "disabled"));
+
+                stream1.close();
+                stream2.close();
+                printInfo("\nNo files were modified (dry run).");
+                return true;
+            } catch (Exception e) {
+                printError("error: could not read file metadata for dry run");
+                return false;
+            }
         }
 
         AudioInputStream audioStream1 = null;
@@ -477,6 +523,7 @@ public class Main {
         double normalizeLevel = 0.8; // Default: normalize to 80%
         boolean batchMode = false;
         boolean reverseMode = false;
+        boolean dryRun = false;
         String outputDir = "./";
         java.util.ArrayList<String> batchFiles = new java.util.ArrayList<>();
 
@@ -493,6 +540,8 @@ public class Main {
                 verbosity = 2;
             } else if ("-q".equals(arg) || "--quiet".equals(arg)) {
                 verbosity = 0;
+            } else if ("--dry-run".equals(arg)) {
+                dryRun = true;
             } else if (arg.startsWith("--fade=")) {
                 try {
                     String fadeValue = arg.substring(7);
@@ -576,7 +625,7 @@ public class Main {
                 }
 
                 // Process file
-                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel)) {
+                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel, dryRun)) {
                     successCount++;
                 } else {
                     failCount++;
@@ -636,6 +685,7 @@ public class Main {
             System.err.println("  --reverse          Swap file order (beat after content, not before)");
             System.err.println("  -v, --verbose      Show detailed processing information");
             System.err.println("  -q, --quiet        Suppress all output except errors");
+            System.err.println("  --dry-run          Show what would be done without processing");
             System.err.println("  --batch            Enable batch processing mode");
             System.err.println("  --output-dir=DIR   Output directory for batch mode (default: ./)");
             System.exit(1);
@@ -650,7 +700,7 @@ public class Main {
             System.exit(1);
         }
 
-        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel)) {
+        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun)) {
             System.exit(0);
         } else {
             System.exit(1);
