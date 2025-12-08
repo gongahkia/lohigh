@@ -111,6 +111,103 @@ public class Main {
     }
 
     /**
+     * Finds the peak audio level in a byte array.
+     *
+     * @param audioData The audio data to analyze
+     * @param format Audio format for sample interpretation
+     * @return Peak level as a value between 0.0 and 1.0
+     */
+    private static double findPeakLevel(byte[] audioData, AudioFormat format) {
+        int bytesPerSample = format.getSampleSizeInBits() / 8;
+        boolean bigEndian = format.isBigEndian();
+        int maxAmplitude = 0;
+
+        for (int i = 0; i < audioData.length - bytesPerSample; i += bytesPerSample) {
+            int sample = 0;
+
+            if (bytesPerSample == 2) {
+                // 16-bit audio
+                if (bigEndian) {
+                    sample = (audioData[i] << 8) | (audioData[i + 1] & 0xFF);
+                } else {
+                    sample = (audioData[i + 1] << 8) | (audioData[i] & 0xFF);
+                }
+            }
+
+            int amplitude = Math.abs(sample);
+            if (amplitude > maxAmplitude) {
+                maxAmplitude = amplitude;
+            }
+        }
+
+        // Return as fraction of maximum possible amplitude (32767 for 16-bit)
+        return maxAmplitude / 32767.0;
+    }
+
+    /**
+     * Normalizes audio data to a target peak level.
+     *
+     * @param audioData The audio data to normalize
+     * @param format Audio format for sample interpretation
+     * @param targetLevel Target peak level (0.0 to 1.0, typically 0.8)
+     * @return Normalized audio bytes
+     */
+    private static byte[] normalizeAudio(byte[] audioData, AudioFormat format, double targetLevel) {
+        // Find current peak level
+        double currentPeak = findPeakLevel(audioData, format);
+
+        if (currentPeak < 0.001) {
+            // Audio is essentially silent, don't normalize
+            return audioData;
+        }
+
+        // Calculate scaling factor
+        double scaleFactor = targetLevel / currentPeak;
+
+        // Don't amplify if already at or above target
+        if (scaleFactor > 1.0) {
+            scaleFactor = Math.min(scaleFactor, 1.0 / currentPeak); // Prevent clipping
+        } else {
+            // Already loud enough, no change needed
+            return audioData;
+        }
+
+        int bytesPerSample = format.getSampleSizeInBits() / 8;
+        boolean bigEndian = format.isBigEndian();
+        byte[] normalized = new byte[audioData.length];
+
+        for (int i = 0; i < audioData.length - bytesPerSample; i += bytesPerSample) {
+            int sample = 0;
+
+            if (bytesPerSample == 2) {
+                // 16-bit audio
+                if (bigEndian) {
+                    sample = (audioData[i] << 8) | (audioData[i + 1] & 0xFF);
+                } else {
+                    sample = (audioData[i + 1] << 8) | (audioData[i] & 0xFF);
+                }
+
+                // Apply scaling
+                sample = (int) (sample * scaleFactor);
+
+                // Clamp to 16-bit range
+                sample = Math.max(-32768, Math.min(32767, sample));
+
+                // Write back
+                if (bigEndian) {
+                    normalized[i] = (byte) (sample >> 8);
+                    normalized[i + 1] = (byte) (sample & 0xFF);
+                } else {
+                    normalized[i] = (byte) (sample & 0xFF);
+                    normalized[i + 1] = (byte) (sample >> 8);
+                }
+            }
+        }
+
+        return normalized;
+    }
+
+    /**
      * Applies linear crossfade between two audio byte arrays.
      *
      * @param fadeBuffer1 The ending portion of the first audio file
@@ -171,9 +268,10 @@ public class Main {
      * @param inputFile2 Path to the second input WAV file
      * @param outputFile Path to the output WAV file
      * @param fadeDurationSeconds Duration of crossfade in seconds (0 for no crossfade)
+     * @param normalizeLevel Target normalization level (0.0 to 1.0, or -1 to disable)
      * @return true if successful, false otherwise
      */
-    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds) {
+    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds, double normalizeLevel) {
         // Validate input files
         if (!validateInputFile(inputFile1)) {
             return false;
@@ -248,6 +346,21 @@ public class Main {
                 buffer2.write(tempBuffer, 0, bytesRead);
             }
             byte[] audio2 = buffer2.toByteArray();
+
+            // Apply normalization if enabled
+            if (normalizeLevel > 0) {
+                double peak1 = findPeakLevel(audio1, format);
+                double peak2 = findPeakLevel(audio2, format);
+
+                System.out.println("Pre-normalization levels:");
+                System.out.println("  File 1 peak: " + String.format("%.1f%%", peak1 * 100));
+                System.out.println("  File 2 peak: " + String.format("%.1f%%", peak2 * 100));
+
+                audio1 = normalizeAudio(audio1, format, normalizeLevel);
+                audio2 = normalizeAudio(audio2, format, normalizeLevel);
+
+                System.out.println("Normalized to target level: " + String.format("%.1f%%", normalizeLevel * 100));
+            }
 
             if (fadeDurationSeconds > 0 && fadeLengthBytes > 0) {
                 // Apply crossfade
@@ -324,6 +437,7 @@ public class Main {
      *        - 3 args: <input_file1.wav> <input_file2.wav> <output_file.wav>
      *        - --force flag: allows overwriting existing files without prompting
      *        - --fade=<duration> flag: applies crossfade with specified duration (e.g., --fade=1.5)
+     *        - --level=<target> flag: normalizes audio to target level (e.g., --level=0.8)
      */
     public static void main(String[] args) {
         String inputFile1 = null;
@@ -331,6 +445,7 @@ public class Main {
         String outputFile = null;
         boolean forceOverwrite = false;
         double fadeDuration = 0.0; // Default: no crossfade
+        double normalizeLevel = 0.8; // Default: normalize to 80%
 
         // Parse flags and file arguments
         int fileArgCount = 0;
@@ -355,6 +470,21 @@ public class Main {
                     System.err.println("suggestion: use --fade=1.5 or --fade=1.5s");
                     System.exit(1);
                 }
+            } else if (arg.startsWith("--level=")) {
+                try {
+                    String levelValue = arg.substring(8);
+                    normalizeLevel = Double.parseDouble(levelValue);
+                    if (normalizeLevel < 0.0 || normalizeLevel > 1.0) {
+                        System.err.println("error: normalization level must be between 0.0 and 1.0");
+                        System.exit(1);
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("error: invalid normalization level format");
+                    System.err.println("suggestion: use --level=0.8 (for 80% of maximum)");
+                    System.exit(1);
+                }
+            } else if ("--no-normalize".equals(arg)) {
+                normalizeLevel = -1.0; // Disable normalization
             } else {
                 if (fileArgCount < 3) {
                     fileArgs[fileArgCount++] = arg;
@@ -379,8 +509,10 @@ public class Main {
             System.err.println("  java Main <input_file1.wav> <input_file2.wav> <output_file.wav>");
             System.err.println("  java Main <input_file2.wav> <output_file.wav>");
             System.err.println("\nOptional flags:");
-            System.err.println("  --force           Overwrite output file if it already exists");
-            System.err.println("  --fade=<seconds>  Apply crossfade between files (e.g., --fade=1.5)");
+            System.err.println("  --force            Overwrite output file if it already exists");
+            System.err.println("  --fade=<seconds>   Apply crossfade between files (e.g., --fade=1.5)");
+            System.err.println("  --level=<0.0-1.0>  Normalize audio to target level (default: 0.8)");
+            System.err.println("  --no-normalize     Disable automatic volume normalization");
             System.exit(1);
         }
 
@@ -393,7 +525,7 @@ public class Main {
             System.exit(1);
         }
 
-        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration)) {
+        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel)) {
             System.exit(0);
         } else {
             System.exit(1);
