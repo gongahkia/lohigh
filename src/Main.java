@@ -14,30 +14,96 @@ public class Main {
 
     // Verbosity levels
     private static int verbosity = 1; // 0 = quiet, 1 = normal, 2 = verbose
+    private static boolean jsonOutput = false; // JSON output mode
+    private static StringBuilder jsonData = new StringBuilder(); // For collecting JSON data
 
     /**
-     * Prints info message if verbosity level allows.
+     * Prints info message if verbosity level allows (unless in JSON mode).
      */
     private static void printInfo(String message) {
-        if (verbosity >= 1) {
+        if (verbosity >= 1 && !jsonOutput) {
             System.out.println(message);
         }
     }
 
     /**
-     * Prints verbose message if verbosity level allows.
+     * Prints verbose message if verbosity level allows (unless in JSON mode).
      */
     private static void printVerbose(String message) {
-        if (verbosity >= 2) {
+        if (verbosity >= 2 && !jsonOutput) {
             System.out.println("[VERBOSE] " + message);
         }
     }
 
     /**
-     * Prints error message (always shown).
+     * Prints error message (always shown unless in JSON mode).
      */
     private static void printError(String message) {
-        System.err.println(message);
+        if (!jsonOutput) {
+            System.err.println(message);
+        }
+    }
+
+    /**
+     * Escapes a string for JSON output.
+     */
+    private static String escapeJson(String s) {
+        if (s == null) return "null";
+        return "\""  + s.replace("\\", "\\\\")
+                       .replace("\"", "\\\"")
+                       .replace("\n", "\\n")
+                       .replace("\r", "\\r")
+                       .replace("\t", "\\t") + "\"";
+    }
+
+    /**
+     * Outputs JSON result.
+     */
+    private static void outputJson(boolean success, String outputFile, String[] inputFiles, String errorMessage, java.util.Map<String, Object> extraData) {
+        if (!jsonOutput) return;
+
+        System.out.println("{");
+        System.out.println("  \"status\": " + escapeJson(success ? "success" : "error") + ",");
+
+        // Input files array
+        System.out.print("  \"input_files\": [");
+        if (inputFiles != null && inputFiles.length > 0) {
+            for (int i = 0; i < inputFiles.length; i++) {
+                System.out.print(escapeJson(inputFiles[i]));
+                if (i < inputFiles.length - 1) System.out.print(", ");
+            }
+        }
+        System.out.println("],");
+
+        // Output file
+        System.out.println("  \"output_file\": " + escapeJson(outputFile) + ",");
+
+        // Error message (if any)
+        if (errorMessage != null) {
+            System.out.println("  \"error\": " + escapeJson(errorMessage) + ",");
+        }
+
+        // Extra data
+        if (extraData != null && !extraData.isEmpty()) {
+            for (java.util.Map.Entry<String, Object> entry : extraData.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                System.out.print("  " + escapeJson(key) + ": ");
+                if (value instanceof String) {
+                    System.out.println(escapeJson((String) value) + ",");
+                } else if (value instanceof Number) {
+                    System.out.println(value + ",");
+                } else if (value instanceof Boolean) {
+                    System.out.println(value + ",");
+                } else {
+                    System.out.println(escapeJson(value.toString()) + ",");
+                }
+            }
+        }
+
+        // Timestamp
+        System.out.println("  \"timestamp\": " + escapeJson(java.time.Instant.now().toString()));
+        System.out.println("}");
     }
 
     /**
@@ -48,7 +114,7 @@ public class Main {
      * @param operation Description of operation
      */
     private static void printProgress(long current, long total, String operation) {
-        if (verbosity < 1) return; // Don't show in quiet mode
+        if (verbosity < 1 || jsonOutput) return; // Don't show in quiet or JSON mode
 
         int percent = (int) ((current * 100) / total);
         int barLength = 40;
@@ -702,6 +768,9 @@ public class Main {
                 verbosity = 2;
             } else if ("-q".equals(arg) || "--quiet".equals(arg)) {
                 verbosity = 0;
+            } else if ("--json".equals(arg)) {
+                jsonOutput = true;
+                verbosity = 0; // Suppress normal output in JSON mode
             } else if ("--dry-run".equals(arg)) {
                 dryRun = true;
             } else if ("--shuffle".equals(arg)) {
@@ -968,6 +1037,7 @@ public class Main {
             System.err.println("  --reverse            Swap file order (beat after content, not before)");
             System.err.println("  -v, --verbose        Show detailed processing information");
             System.err.println("  -q, --quiet          Suppress all output except errors");
+            System.err.println("  --json               Output results in JSON format for scripting");
             System.err.println("  --dry-run            Show what would be done without processing");
             System.err.println("  --preview=<seconds>  Process only first N seconds (e.g., --preview=30)");
             System.err.println("  --shuffle            Randomize file order for creative mixing");
@@ -987,10 +1057,23 @@ public class Main {
             System.exit(1);
         }
 
-        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount)) {
-            System.exit(0);
-        } else {
-            System.exit(1);
+        boolean success = combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount);
+
+        // Output JSON if requested
+        if (jsonOutput) {
+            java.util.Map<String, Object> extraData = new java.util.HashMap<>();
+            File outFile = new File(outputFile);
+            if (outFile.exists()) {
+                extraData.put("size_bytes", outFile.length());
+            }
+            extraData.put("fade_duration", fadeDuration);
+            extraData.put("normalize_level", normalizeLevel);
+            extraData.put("loop_count", loopCount);
+
+            outputJson(success, outputFile, new String[]{inputFile1, inputFile2},
+                      success ? null : "Processing failed", extraData);
         }
+
+        System.exit(success ? 0 : 1);
     }
 }
