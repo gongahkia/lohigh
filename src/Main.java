@@ -355,6 +355,25 @@ public class Main {
     }
 
     /**
+     * Loops/repeats audio data N times by concatenating it with itself.
+     *
+     * @param audioData The audio data to loop
+     * @param loopCount Number of times to loop (2 = double, 3 = triple, etc.)
+     * @return Looped audio data
+     */
+    private static byte[] loopAudio(byte[] audioData, int loopCount) {
+        if (loopCount <= 1) {
+            return audioData;
+        }
+
+        byte[] result = new byte[audioData.length * loopCount];
+        for (int i = 0; i < loopCount; i++) {
+            System.arraycopy(audioData, 0, result, i * audioData.length, audioData.length);
+        }
+        return result;
+    }
+
+    /**
      * Combines two sound files into one output file by concatenating them.
      *
      * @param inputFile1 Path to the first input WAV file
@@ -364,9 +383,10 @@ public class Main {
      * @param normalizeLevel Target normalization level (0.0 to 1.0, or -1 to disable)
      * @param dryRun If true, only show what would be done without processing
      * @param previewDuration If > 0, only process first N seconds of each file
+     * @param loopCount Number of times to loop the first file (1 = no loop, 2 = double, etc.)
      * @return true if successful, false otherwise
      */
-    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds, double normalizeLevel, boolean dryRun, double previewDuration) {
+    public static boolean combineSoundFiles(String inputFile1, String inputFile2, String outputFile, double fadeDurationSeconds, double normalizeLevel, boolean dryRun, double previewDuration, int loopCount) {
         // Validate input files
         if (!validateInputFile(inputFile1)) {
             return false;
@@ -505,6 +525,12 @@ public class Main {
                 printProgress(bytesReadTotal1, Math.min(maxBytes1, file1ActualSize), "Reading file 1");
             }
             byte[] audio1 = buffer1.toByteArray();
+
+            // Apply looping if requested
+            if (loopCount > 1) {
+                printVerbose("Looping first file " + loopCount + " times");
+                audio1 = loopAudio(audio1, loopCount);
+            }
 
             // Read second file into buffer (with preview limit)
             ByteArrayOutputStream buffer2 = new ByteArrayOutputStream();
@@ -660,6 +686,7 @@ public class Main {
         double previewDuration = 0.0; // 0 = no preview
         String outputDir = "./";
         String playlistFile = null;
+        int loopCount = 1; // Default: no looping
         java.util.ArrayList<String> batchFiles = new java.util.ArrayList<>();
 
         // Parse flags and file arguments
@@ -681,6 +708,18 @@ public class Main {
                 shuffleMode = true;
             } else if (arg.startsWith("--playlist=")) {
                 playlistFile = arg.substring(11);
+            } else if (arg.startsWith("--loop=")) {
+                try {
+                    loopCount = Integer.parseInt(arg.substring(7));
+                    if (loopCount < 1) {
+                        System.err.println("error: loop count must be at least 1");
+                        System.exit(1);
+                    }
+                } catch (NumberFormatException e) {
+                    System.err.println("error: invalid loop count format");
+                    System.err.println("suggestion: use --loop=3 (to repeat 3 times)");
+                    System.exit(1);
+                }
             } else if (arg.startsWith("--preview=")) {
                 try {
                     String previewValue = arg.substring(10);
@@ -787,7 +826,7 @@ public class Main {
                 }
 
                 // Process file
-                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel, dryRun, previewDuration)) {
+                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount)) {
                     successCount++;
                 } else {
                     failCount++;
@@ -856,7 +895,7 @@ public class Main {
                          new File(currentFile).getName() + " + " + new File(nextFile).getName());
 
                 // Combine current with next
-                if (!combineSoundFiles(currentFile, nextFile, tempOutput, fadeDuration, normalizeLevel, dryRun, previewDuration)) {
+                if (!combineSoundFiles(currentFile, nextFile, tempOutput, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount)) {
                     // Clean up temp files on failure
                     for (int j = 0; j < tempIndex; j++) {
                         new File(tempFileBase + j + ".wav").delete();
@@ -935,6 +974,7 @@ public class Main {
             System.err.println("  --batch              Enable batch processing mode");
             System.err.println("  --output-dir=DIR     Output directory for batch mode (default: ./)");
             System.err.println("  --playlist=FILE      Process files from playlist (one path per line)");
+            System.err.println("  --loop=N             Repeat first file N times (e.g., --loop=3)");
             System.exit(1);
         }
 
@@ -947,7 +987,7 @@ public class Main {
             System.exit(1);
         }
 
-        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun, previewDuration)) {
+        if (combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount)) {
             System.exit(0);
         } else {
             System.exit(1);
