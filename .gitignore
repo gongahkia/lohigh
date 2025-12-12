@@ -1,2 +1,5 @@
 lohigh
 *.class
+*.jar
+manifest.txt
+build/
