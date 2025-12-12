@@ -143,6 +143,67 @@ $ java -cp src Main --batch *.wav --shuffle
 - Java 8 or higher
 - No external dependencies (uses standard `javax.sound.sampled` library)
 
+## audio compatibility
+
+lohigh works with a variety of WAV file configurations. Here's what's supported:
+
+### Compatibility Matrix
+
+| Format | Sample Rate | Bit Depth | Channels | Status | Notes |
+|--------|-------------|-----------|----------|--------|-------|
+| WAV (PCM) | Any | 16-bit | Mono (1) | ✅ Fully Supported | Recommended format |
+| WAV (PCM) | Any | 16-bit | Stereo (2) | ✅ Fully Supported | Most common format |
+| WAV (PCM) | Any | 24-bit | Mono/Stereo | ⚠️ Partial | May work but not tested extensively |
+| WAV (PCM) | Any | 32-bit | Mono/Stereo | ⚠️ Partial | May work but not tested extensively |
+| MP3 | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.mp3 output.wav` |
+| FLAC | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.flac output.wav` |
+| OGG/Vorbis | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.ogg output.wav` |
+| M4A/AAC | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.m4a output.wav` |
+
+### Important Notes
+
+**Sample Rate Matching Required**
+- Both input files must have the **same sample rate** (e.g., both 44100 Hz)
+- Common rates: 22050 Hz, 44100 Hz, 48000 Hz
+- Mismatched rates will produce an error with conversion instructions
+
+**Channel Matching Required**
+- Both input files must have the **same number of channels**
+- Both mono (1 channel) or both stereo (2 channels)
+
+**Bit Depth**
+- 16-bit PCM is the recommended and most tested format
+- 24-bit and 32-bit may work but are not extensively tested
+- Output will match the input bit depth
+
+### Converting Audio Files
+
+Use ffmpeg to convert files to compatible formats:
+
+```bash
+# Convert to 44.1kHz stereo 16-bit WAV (recommended)
+ffmpeg -i input.mp3 -ar 44100 -ac 2 -sample_fmt s16 output.wav
+
+# Convert to match an existing file's format
+ffmpeg -i file_to_convert.flac -ar 48000 -ac 2 output.wav
+
+# Batch convert all MP3s in a directory
+for f in *.mp3; do ffmpeg -i "$f" -ar 44100 -ac 2 "${f%.mp3}.wav"; done
+```
+
+### Checking File Compatibility
+
+Use the `--dry-run` flag to check file compatibility before processing:
+
+```bash
+java -cp src Main file1.wav file2.wav output.wav --dry-run -v
+```
+
+This shows:
+- Sample rate, bit depth, and channels for each file
+- Whether the files are compatible
+- Estimated output size
+
 ## development
 
 ### Building
