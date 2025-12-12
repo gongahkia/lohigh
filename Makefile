@@ -3,13 +3,13 @@ all: build
 clean: build
 	rm -rf .git .gitignore asset README.md lohigh src/*.class
 
-build: src/Main.java
-	@javac src/Main.java
+build: src/*.java
+	@javac src/*.java
 	@echo "Build complete! Run with: java -cp src Main <input.wav> <output.wav>"
 
-debug: src/Main.java
+debug: src/*.java
 	@echo "Building in debug mode with verbose compiler output..."
-	@javac -g -verbose src/Main.java
+	@javac -g -verbose src/*.java
 	@echo "Debug build complete!"
 	@echo "Debug symbols included. Run with verbose flag: java -cp src Main <args> -v"
 	@echo "For extra debugging, run with: java -Xdebug -cp src Main <args>"
