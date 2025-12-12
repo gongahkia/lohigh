@@ -324,6 +324,37 @@ public class Main {
     }
 
     /**
+     * Reads a playlist file and returns a list of file paths.
+     * Supports plain text files (one path per line) and .m3u format.
+     *
+     * @param playlistPath Path to the playlist file
+     * @return ArrayList of file paths
+     */
+    private static java.util.ArrayList<String> readPlaylist(String playlistPath) {
+        java.util.ArrayList<String> files = new java.util.ArrayList<>();
+
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(playlistPath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+
+                // Skip empty lines and M3U comments (lines starting with #)
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+
+                files.add(line);
+            }
+        } catch (IOException e) {
+            printError("error: could not read playlist file '" + playlistPath + "'");
+            printError("  " + e.getMessage());
+            return null;
+        }
+
+        return files;
+    }
+
+    /**
      * Combines two sound files into one output file by concatenating them.
      *
      * @param inputFile1 Path to the first input WAV file
@@ -628,6 +659,7 @@ public class Main {
         boolean dryRun = false;
         double previewDuration = 0.0; // 0 = no preview
         String outputDir = "./";
+        String playlistFile = null;
         java.util.ArrayList<String> batchFiles = new java.util.ArrayList<>();
 
         // Parse flags and file arguments
@@ -647,6 +679,8 @@ public class Main {
                 dryRun = true;
             } else if ("--shuffle".equals(arg)) {
                 shuffleMode = true;
+            } else if (arg.startsWith("--playlist=")) {
+                playlistFile = arg.substring(11);
             } else if (arg.startsWith("--preview=")) {
                 try {
                     String previewValue = arg.substring(10);
@@ -768,6 +802,86 @@ public class Main {
             System.exit(failCount > 0 ? 1 : 0);
         }
 
+        // Handle playlist mode
+        if (playlistFile != null) {
+            // Read playlist file
+            java.util.ArrayList<String> playlistFiles = readPlaylist(playlistFile);
+            if (playlistFiles == null || playlistFiles.isEmpty()) {
+                System.err.println("error: playlist file is empty or could not be read");
+                System.err.println("suggestion: ensure the playlist file contains one file path per line");
+                System.exit(1);
+            }
+
+            // Shuffle if requested
+            if (shuffleMode) {
+                Collections.shuffle(playlistFiles);
+                printVerbose("Shuffled playlist order for creative mixing");
+            }
+
+            // Need an output file
+            if (fileArgsList.isEmpty()) {
+                System.err.println("error: playlist mode requires an output file");
+                System.err.println("usage: java Main --playlist=files.txt output.wav");
+                System.exit(1);
+            }
+            outputFile = fileArgsList.get(0);
+
+            // Check if output exists
+            if (new File(outputFile).exists() && !forceOverwrite) {
+                System.err.println("error: output file '" + outputFile + "' already exists");
+                System.err.println("suggestion: use a different output filename, or use --force to overwrite");
+                System.exit(1);
+            }
+
+            printInfo("Processing playlist with " + playlistFiles.size() + " file(s)...");
+
+            // Process files sequentially by combining them pairwise
+            String currentFile = playlistFiles.get(0);
+            String tempFileBase = outputFile + ".playlist_temp_";
+            int tempIndex = 0;
+
+            for (int i = 1; i < playlistFiles.size(); i++) {
+                String nextFile = playlistFiles.get(i);
+                String tempOutput;
+
+                // For the last pair, use the final output file
+                if (i == playlistFiles.size() - 1) {
+                    tempOutput = outputFile;
+                } else {
+                    tempOutput = tempFileBase + tempIndex + ".wav";
+                    tempIndex++;
+                }
+
+                printInfo("[" + i + "/" + (playlistFiles.size() - 1) + "] Combining: " +
+                         new File(currentFile).getName() + " + " + new File(nextFile).getName());
+
+                // Combine current with next
+                if (!combineSoundFiles(currentFile, nextFile, tempOutput, fadeDuration, normalizeLevel, dryRun, previewDuration)) {
+                    // Clean up temp files on failure
+                    for (int j = 0; j < tempIndex; j++) {
+                        new File(tempFileBase + j + ".wav").delete();
+                    }
+                    System.err.println("error: playlist processing failed");
+                    System.exit(1);
+                }
+
+                // Delete the previous temp file if it exists
+                if (i > 1) {
+                    new File(tempFileBase + (tempIndex - 2) + ".wav").delete();
+                }
+
+                currentFile = tempOutput;
+            }
+
+            // Clean up any remaining temp files
+            for (int j = 0; j < tempIndex; j++) {
+                new File(tempFileBase + j + ".wav").delete();
+            }
+
+            printInfo("\nPlaylist processing complete: " + outputFile);
+            System.exit(0);
+        }
+
         // Normal (non-batch) mode
         fileArgCount = fileArgsList.size();
         String[] fileArgs = fileArgsList.toArray(new String[0]);
@@ -805,12 +919,14 @@ public class Main {
             System.err.println("    java Main <input_file2.wav> <output_file.wav>");
             System.err.println("\n  Batch mode:");
             System.err.println("    java Main --batch file1.wav file2.wav ... [--output-dir=DIR]");
+            System.err.println("\n  Playlist mode:");
+            System.err.println("    java Main --playlist=files.txt output.wav");
             System.err.println("\nOptional flags:");
-            System.err.println("  --force            Overwrite output file if it already exists");
-            System.err.println("  --fade=<seconds>   Apply crossfade between files (e.g., --fade=1.5)");
-            System.err.println("  --level=<0.0-1.0>  Normalize audio to target level (default: 0.8)");
-            System.err.println("  --no-normalize     Disable automatic volume normalization");
-            System.err.println("  --reverse          Swap file order (beat after content, not before)");
+            System.err.println("  --force              Overwrite output file if it already exists");
+            System.err.println("  --fade=<seconds>     Apply crossfade between files (e.g., --fade=1.5)");
+            System.err.println("  --level=<0.0-1.0>    Normalize audio to target level (default: 0.8)");
+            System.err.println("  --no-normalize       Disable automatic volume normalization");
+            System.err.println("  --reverse            Swap file order (beat after content, not before)");
             System.err.println("  -v, --verbose        Show detailed processing information");
             System.err.println("  -q, --quiet          Suppress all output except errors");
             System.err.println("  --dry-run            Show what would be done without processing");
@@ -818,6 +934,7 @@ public class Main {
             System.err.println("  --shuffle            Randomize file order for creative mixing");
             System.err.println("  --batch              Enable batch processing mode");
             System.err.println("  --output-dir=DIR     Output directory for batch mode (default: ./)");
+            System.err.println("  --playlist=FILE      Process files from playlist (one path per line)");
             System.exit(1);
         }
 
