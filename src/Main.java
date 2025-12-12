@@ -421,6 +421,46 @@ public class Main {
     }
 
     /**
+     * Checks if a file path represents stdin/stdout (i.e., "-").
+     */
+    private static boolean isStdio(String path) {
+        return "-".equals(path);
+    }
+
+    /**
+     * Reads audio from stdin into a temporary file.
+     * Returns the path to the temporary file.
+     */
+    private static String readStdinToTempFile() throws IOException {
+        File tempFile = File.createTempFile("lohigh_stdin_", ".wav");
+        tempFile.deleteOnExit();
+
+        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = System.in.read(buffer)) != -1) {
+                fos.write(buffer, 0, bytesRead);
+            }
+        }
+
+        return tempFile.getAbsolutePath();
+    }
+
+    /**
+     * Writes audio file to stdout.
+     */
+    private static void writeToStdout(String audioFile) throws IOException {
+        try (FileInputStream fis = new FileInputStream(audioFile)) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                System.out.write(buffer, 0, bytesRead);
+            }
+            System.out.flush();
+        }
+    }
+
+    /**
      * Loops/repeats audio data N times by concatenating it with itself.
      *
      * @param audioData The audio data to loop
@@ -1029,6 +1069,9 @@ public class Main {
             System.err.println("    java Main --batch file1.wav file2.wav ... [--output-dir=DIR]");
             System.err.println("\n  Playlist mode:");
             System.err.println("    java Main --playlist=files.txt output.wav");
+            System.err.println("\n  Stdin/stdout mode (use '-' for stdin/stdout):");
+            System.err.println("    cat input.wav | java Main - - > output.wav");
+            System.err.println("    java Main input.wav - > output.wav");
             System.err.println("\nOptional flags:");
             System.err.println("  --force              Overwrite output file if it already exists");
             System.err.println("  --fade=<seconds>     Apply crossfade between files (e.g., --fade=1.5)");
@@ -1048,16 +1091,67 @@ public class Main {
             System.exit(1);
         }
 
-        // Check if output file exists and warn user
-        File outputFileObj = new File(outputFile);
-        if (outputFileObj.exists() && !forceOverwrite) {
-            System.err.println("error: output file '" + outputFile + "' already exists");
-            System.err.println("suggestion: use a different output filename, or use --force to overwrite");
-            System.err.println("           example: java Main input.wav output.wav --force");
+        // Handle stdin/stdout
+        String actualInput1 = inputFile1;
+        String actualInput2 = inputFile2;
+        String actualOutput = outputFile;
+        boolean outputIsStdout = isStdio(outputFile);
+        java.util.ArrayList<String> tempFiles = new java.util.ArrayList<>();
+
+        try {
+            // Handle stdin for input files
+            if (isStdio(inputFile1)) {
+                printVerbose("Reading input file 1 from stdin");
+                actualInput1 = readStdinToTempFile();
+                tempFiles.add(actualInput1);
+            }
+            if (isStdio(inputFile2)) {
+                printVerbose("Reading input file 2 from stdin");
+                actualInput2 = readStdinToTempFile();
+                tempFiles.add(actualInput2);
+            }
+
+            // Handle stdout for output
+            if (outputIsStdout) {
+                // Create a temporary output file
+                File tempOut = File.createTempFile("lohigh_stdout_", ".wav");
+                tempOut.deleteOnExit();
+                actualOutput = tempOut.getAbsolutePath();
+                tempFiles.add(actualOutput);
+                printVerbose("Writing output to stdout");
+            } else {
+                // Check if output file exists and warn user (only for regular files)
+                File outputFileObj = new File(outputFile);
+                if (outputFileObj.exists() && !forceOverwrite) {
+                    System.err.println("error: output file '" + outputFile + "' already exists");
+                    System.err.println("suggestion: use a different output filename, or use --force to overwrite");
+                    System.err.println("           example: java Main input.wav output.wav --force");
+                    System.exit(1);
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("error: failed to handle stdin/stdout");
+            System.err.println("  " + e.getMessage());
             System.exit(1);
         }
 
-        boolean success = combineSoundFiles(inputFile1, inputFile2, outputFile, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount);
+        boolean success = combineSoundFiles(actualInput1, actualInput2, actualOutput, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount);
+
+        // Write to stdout if needed
+        if (success && outputIsStdout) {
+            try {
+                writeToStdout(actualOutput);
+            } catch (IOException e) {
+                System.err.println("error: failed to write to stdout");
+                System.err.println("  " + e.getMessage());
+                success = false;
+            }
+        }
+
+        // Cleanup temp files
+        for (String tempFile : tempFiles) {
+            new File(tempFile).delete();
+        }
 
         // Output JSON if requested
         if (jsonOutput) {

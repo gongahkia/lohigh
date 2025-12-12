@@ -167,6 +167,26 @@ Quick preview before processing large files:
 lohigh large_file.wav test.wav \-\-preview=30 \-\-fade=1.5
 .RE
 .fi
+.SS "Unix Pipelines (stdin/stdout)"
+Use \fB\-\fR to represent stdin or stdout for Unix pipeline integration:
+.PP
+.nf
+.RS
+# Read from stdin, write to stdout
+cat input.wav | lohigh \- \- > output.wav
+
+# Read file, write to stdout
+lohigh input.wav \- > output.wav
+
+# Read from stdin, write to file
+cat input.wav | lohigh \- output.wav
+
+# Pipe through multiple commands
+ffmpeg \-i input.mp3 \-f wav \- | \\
+    lohigh \- \- | \\
+    ffmpeg \-i \- output.mp3
+.RE
+.fi
 .SH FILES
 .TP
 .I ../asset/ambient.wav
