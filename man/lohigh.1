@@ -1,0 +1,225 @@
+.TH LOHIGH 1 "December 2025" "lohigh 3.1" "User Commands"
+.SH NAME
+lohigh \- DJ Sacabambaspis lets you take lofi on the go
+.SH SYNOPSIS
+.B lohigh
+[\fIOPTIONS\fR]
+.I input_file1.wav input_file2.wav output_file.wav
+.br
+.B lohigh
+[\fIOPTIONS\fR]
+.I input_file.wav output_file.wav
+.br
+.B lohigh
+.B \-\-batch
+[\fIOPTIONS\fR]
+.I file1.wav file2.wav ...
+.br
+.B lohigh
+.B \-\-playlist=\fIFILE\fR
+[\fIOPTIONS\fR]
+.I output_file.wav
+.SH DESCRIPTION
+.B lohigh
+is a simple command-line tool for creating lofi music by combining audio files with optional ambient sounds. It supports crossfading, volume normalization, and batch processing while maintaining a minimalist, single-purpose design.
+.PP
+DJ Sacabambaspis helps you transform any audio into lofi with professional-quality output and a playful personality.
+.SH OPTIONS
+.SS "Audio Processing"
+.TP
+.B \-\-fade=\fISECONDS\fR
+Apply crossfade between audio files. Eliminates clicks and pops at transitions.
+Example: \fB\-\-fade=1.5\fR
+.TP
+.B \-\-level=\fILEVEL\fR
+Normalize audio to target peak level (0.0 to 1.0). Default is 0.8 (80%).
+Example: \fB\-\-level=0.9\fR
+.TP
+.B \-\-no\-normalize
+Disable automatic volume normalization, preserving original audio levels.
+.TP
+.B \-\-loop=\fIN\fR
+Repeat the first input file N times before mixing. Useful for extending short ambient loops.
+Example: \fB\-\-loop=3\fR
+.SS "Workflow & UX"
+.TP
+.B \-\-force
+Overwrite output file if it already exists. By default, lohigh refuses to overwrite existing files.
+.TP
+.B \-\-reverse
+Swap the order of input files. Places your content before the ambient sound instead of after.
+.TP
+.B \-v, \-\-verbose
+Show detailed processing information including normalization levels and crossfade details.
+.TP
+.B \-q, \-\-quiet
+Suppress all output except errors. Useful for scripts and automation.
+.TP
+.B \-\-json
+Output results in JSON format for machine-readable parsing. Automatically enables quiet mode.
+.TP
+.B \-\-dry\-run
+Show what would be done without actually processing files. Displays file metadata and estimated output.
+.TP
+.B \-\-preview=\fISECONDS\fR
+Process only the first N seconds of each file. Useful for quick experimentation.
+Example: \fB\-\-preview=30\fR
+.SS "Batch Processing"
+.TP
+.B \-\-batch
+Enable batch processing mode. Mix multiple files with the default ambient sound.
+.TP
+.B \-\-output\-dir=\fIDIR\fR
+Specify output directory for batch mode. Creates directory if it doesn't exist. Default is current directory.
+Example: \fB\-\-output\-dir=./lofi_mixes/\fR
+.TP
+.B \-\-shuffle
+Randomize file order for creative, serendipitous mixing. Works in batch and playlist modes.
+.SS "Playlist Mode"
+.TP
+.B \-\-playlist=\fIFILE\fR
+Process files listed in a playlist file. Supports plain text (one path per line) and .m3u format.
+Files are combined sequentially with crossfade between each.
+Example: \fB\-\-playlist=myfiles.txt\fR
+.SH EXAMPLES
+.SS "Basic Usage"
+Mix any audio file with the built-in ambient sound:
+.PP
+.nf
+.RS
+lohigh podcast.wav podcast_lofi.wav
+.RE
+.fi
+.PP
+Combine two specific audio files:
+.PP
+.nf
+.RS
+lohigh melody.wav beat.wav combined.wav
+.RE
+.fi
+.SS "Professional Mixing"
+Apply crossfade and custom normalization:
+.PP
+.nf
+.RS
+lohigh track1.wav track2.wav output.wav \\
+    \-\-fade=2.0 \-\-level=0.85
+.RE
+.fi
+.SS "Batch Processing"
+Process an entire music library:
+.PP
+.nf
+.RS
+lohigh \-\-batch *.wav \\
+    \-\-output\-dir=./lofi_versions/ \\
+    \-\-fade=1.5 \-\-level=0.8
+.RE
+.fi
+.SS "Playlist Mode"
+Create a mix from a playlist file:
+.PP
+.nf
+.RS
+echo "intro.wav" > playlist.txt
+echo "main.wav" >> playlist.txt
+echo "outro.wav" >> playlist.txt
+
+lohigh \-\-playlist=playlist.txt final_mix.wav \\
+    \-\-fade=1.5
+.RE
+.fi
+.SS "Creative Workflows"
+Extend short ambient loops:
+.PP
+.nf
+.RS
+lohigh ambient_loop.wav content.wav output.wav \\
+    \-\-loop=5 \-\-fade=2.0
+.RE
+.fi
+.PP
+Randomize mixing order for creative discovery:
+.PP
+.nf
+.RS
+lohigh \-\-batch samples/*.wav \\
+    \-\-shuffle \-\-output\-dir=./random_mixes/
+.RE
+.fi
+.SS "Scripting & Automation"
+Use JSON output for integration:
+.PP
+.nf
+.RS
+lohigh input.wav output.wav \-\-json > result.json
+
+# Parse with jq
+cat result.json | jq '.status'
+.RE
+.fi
+.PP
+Quick preview before processing large files:
+.PP
+.nf
+.RS
+lohigh large_file.wav test.wav \-\-preview=30 \-\-fade=1.5
+.RE
+.fi
+.SH FILES
+.TP
+.I ../asset/ambient.wav
+Default ambient sound file used when processing a single input file.
+.TP
+.I ~/.lohighrc
+Optional user configuration file (future feature).
+.SH EXIT STATUS
+.TP
+.B 0
+Success. Audio processing completed without errors.
+.TP
+.B 1
+Failure. An error occurred during processing. Check error messages for details.
+.SH AUDIO COMPATIBILITY
+.B lohigh
+works with WAV (PCM) audio files. Both input files must have:
+.PP
+.RS
+\- Matching sample rates (e.g., both 44100 Hz)
+.br
+\- Matching channel counts (both mono or both stereo)
+.br
+\- 16-bit depth recommended (24/32-bit may work)
+.RE
+.PP
+For other formats (MP3, FLAC, OGG), convert using ffmpeg:
+.PP
+.nf
+.RS
+ffmpeg \-i input.mp3 \-ar 44100 \-ac 2 output.wav
+.RE
+.fi
+.SH BUGS
+Report bugs at: https://github.com/gongahkia/lohigh/issues
+.SH AUTHOR
+Created with love by the lohigh community and DJ Sacabambaspis.
+.SH SEE ALSO
+.BR ffmpeg (1),
+.BR sox (1)
+.PP
+Full documentation and examples:
+.br
+https://github.com/gongahkia/lohigh
+.PP
+.B CHANGELOG.md
+\- Version history
+.br
+.B CONTRIBUTING.md
+\- Contribution guidelines
+.br
+.B TROUBLESHOOTING.md
+\- Common issues and solutions
+.br
+.B examples/
+\- Usage examples and creative workflows

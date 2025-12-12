@@ -43,11 +43,31 @@ install-jar: jar
 	@sudo chmod +x /usr/local/bin/lohigh
 	@echo "Installation complete! Run with: lohigh <input.wav> <output.wav>"
 
+install-man: man/lohigh.1
+	@echo "Installing man page..."
+	@sudo mkdir -p /usr/local/share/man/man1
+	@sudo cp man/lohigh.1 /usr/local/share/man/man1/
+	@sudo chmod 644 /usr/local/share/man/man1/lohigh.1
+	@echo "Man page installed! View with: man lohigh"
+
+install: install-jar install-man
+	@echo "Full installation complete!"
+	@echo "Run with: lohigh <input.wav> <output.wav>"
+	@echo "View manual: man lohigh"
+
 uninstall-jar:
 	@echo "Uninstalling lohigh..."
 	@sudo rm -f /usr/local/lib/lohigh.jar
 	@sudo rm -f /usr/local/bin/lohigh
 	@echo "Uninstall complete."
+
+uninstall-man:
+	@echo "Uninstalling man page..."
+	@sudo rm -f /usr/local/share/man/man1/lohigh.1
+	@echo "Man page uninstalled."
+
+uninstall: uninstall-jar uninstall-man
+	@echo "Full uninstall complete."
 
 run: build
 	@java -cp src Main
@@ -62,4 +82,4 @@ up:
 	@git pull
 	@git status
 
-.PHONY: all clean build debug jar jar-with-assets install-jar uninstall-jar run config up
+.PHONY: all clean build debug jar jar-with-assets install-jar install-man install uninstall-jar uninstall-man uninstall run config up
