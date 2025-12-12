@@ -9,8 +9,19 @@ import java.util.Collections;
  */
 public class Main {
 
-    private static final String DEFAULT_INPUT_FILE1 = "../asset/ambient.wav";
+    private static final String ASSET_DIR = "../asset/";
+    private static final String DEFAULT_AMBIENT = "ambient.wav";
+    private static final String DEFAULT_INPUT_FILE1 = ASSET_DIR + DEFAULT_AMBIENT;
     private static final long MAX_FILE_SIZE = 1024L * 1024L * 1024L; // 1GB default limit
+
+    // Available ambient files (users can add more to asset/ directory)
+    private static final String[] AMBIENT_FILES = {
+        "ambient.wav",
+        "ambient_vinyl.wav",
+        "ambient_rain.wav",
+        "ambient_cafe.wav",
+        "ambient_night.wav"
+    };
 
     // Verbosity levels
     private static int verbosity = 1; // 0 = quiet, 1 = normal, 2 = verbose
@@ -475,6 +486,85 @@ public class Main {
     }
 
     /**
+     * Selects an ambient file based on user preference.
+     *
+     * @param ambientChoice User's ambient choice (filename, "random", or null for default)
+     * @return Full path to the selected ambient file
+     */
+    private static String selectAmbientFile(String ambientChoice) {
+        if (ambientChoice == null || ambientChoice.isEmpty()) {
+            // Default ambient file
+            return DEFAULT_INPUT_FILE1;
+        }
+
+        if ("random".equalsIgnoreCase(ambientChoice)) {
+            // Select random ambient file from available ones
+            java.util.ArrayList<String> availableFiles = new java.util.ArrayList<>();
+
+            for (String ambientFile : AMBIENT_FILES) {
+                File f = new File(ASSET_DIR + ambientFile);
+                if (f.exists()) {
+                    availableFiles.add(ASSET_DIR + ambientFile);
+                }
+            }
+
+            if (availableFiles.isEmpty()) {
+                printVerbose("Warning: no ambient files found, using default");
+                return DEFAULT_INPUT_FILE1;
+            }
+
+            int randomIndex = new java.util.Random().nextInt(availableFiles.size());
+            String selected = availableFiles.get(randomIndex);
+            printVerbose("Randomly selected ambient: " + new File(selected).getName());
+            return selected;
+        }
+
+        // Check if it's a known ambient name (without path)
+        String ambientPath = ASSET_DIR + ambientChoice;
+        File ambientFile = new File(ambientPath);
+        if (ambientFile.exists()) {
+            printVerbose("Using ambient: " + ambientChoice);
+            return ambientPath;
+        }
+
+        // Try with .wav extension if not provided
+        if (!ambientChoice.endsWith(".wav")) {
+            ambientPath = ASSET_DIR + ambientChoice + ".wav";
+            ambientFile = new File(ambientPath);
+            if (ambientFile.exists()) {
+                printVerbose("Using ambient: " + ambientChoice + ".wav");
+                return ambientPath;
+            }
+        }
+
+        // Not found in asset directory, assume it's a full path
+        File customFile = new File(ambientChoice);
+        if (customFile.exists()) {
+            printVerbose("Using custom ambient: " + ambientChoice);
+            return ambientChoice;
+        }
+
+        // Fallback to default
+        System.err.println("warning: ambient file '" + ambientChoice + "' not found, using default");
+        return DEFAULT_INPUT_FILE1;
+    }
+
+    /**
+     * Lists available ambient files in the asset directory.
+     */
+    private static void listAmbientFiles() {
+        printInfo("Available ambient files:");
+        for (String ambientFile : AMBIENT_FILES) {
+            File f = new File(ASSET_DIR + ambientFile);
+            if (f.exists()) {
+                printInfo("  - " + ambientFile.replace(".wav", ""));
+            }
+        }
+        printInfo("  - random (selects randomly from available files)");
+        printInfo("  - Or provide a custom file path");
+    }
+
+    /**
      * Checks if a file path represents stdin/stdout (i.e., "-").
      */
     private static boolean isStdio(String path) {
@@ -850,6 +940,7 @@ public class Main {
         String outputDir = "./";
         String playlistFile = null;
         int loopCount = 1; // Default: no looping
+        String ambientChoice = null; // null = use default ambient.wav
         java.util.ArrayList<String> batchFiles = new java.util.ArrayList<>();
 
         // Apply config file defaults
@@ -886,6 +977,9 @@ public class Main {
         if (config.containsKey("shuffle")) {
             shuffleMode = "true".equalsIgnoreCase(config.get("shuffle"));
         }
+        if (config.containsKey("ambient")) {
+            ambientChoice = config.get("ambient");
+        }
 
         // Parse flags and file arguments (these override config file)
         int fileArgCount = 0;
@@ -909,6 +1003,11 @@ public class Main {
                 shuffleMode = true;
             } else if (arg.startsWith("--playlist=")) {
                 playlistFile = arg.substring(11);
+            } else if (arg.startsWith("--ambient=")) {
+                ambientChoice = arg.substring(10);
+            } else if ("--list-ambients".equals(arg)) {
+                listAmbientFiles();
+                System.exit(0);
             } else if (arg.startsWith("--loop=")) {
                 try {
                     loopCount = Integer.parseInt(arg.substring(7));
@@ -979,6 +1078,9 @@ public class Main {
             }
         }
 
+        // Select ambient file
+        String selectedAmbient = selectAmbientFile(ambientChoice);
+
         // Handle batch mode
         if (batchMode) {
             if (fileArgsList.size() < 1) {
@@ -1027,7 +1129,7 @@ public class Main {
                 }
 
                 // Process file
-                if (combineSoundFiles(DEFAULT_INPUT_FILE1, inputFile, outFilePath, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount)) {
+                if (combineSoundFiles(selectedAmbient, inputFile, outFilePath, fadeDuration, normalizeLevel, dryRun, previewDuration, loopCount)) {
                     successCount++;
                 } else {
                     failCount++;
@@ -1143,10 +1245,10 @@ public class Main {
             if (reverseMode) {
                 // Reverse mode: user file first, then ambient
                 inputFile1 = fileArgs[0];
-                inputFile2 = DEFAULT_INPUT_FILE1;
+                inputFile2 = selectedAmbient;
             } else {
                 // Normal mode: ambient first, then user file
-                inputFile1 = DEFAULT_INPUT_FILE1;
+                inputFile1 = selectedAmbient;
                 inputFile2 = fileArgs[0];
             }
             outputFile = fileArgs[1];
@@ -1180,6 +1282,8 @@ public class Main {
             System.err.println("  --output-dir=DIR     Output directory for batch mode (default: ./)");
             System.err.println("  --playlist=FILE      Process files from playlist (one path per line)");
             System.err.println("  --loop=N             Repeat first file N times (e.g., --loop=3)");
+            System.err.println("  --ambient=NAME       Choose ambient file (ambient, vinyl, rain, cafe, night, random)");
+            System.err.println("  --list-ambients      List available ambient files and exit");
             System.exit(1);
         }
 

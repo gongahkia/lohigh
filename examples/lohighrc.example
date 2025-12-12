@@ -6,6 +6,7 @@
 fade=1.5          # Crossfade duration in seconds
 level=0.8         # Normalization level (0.0 to 1.0)
 loop=1            # Loop count for first file
+ambient=ambient   # Ambient file choice (ambient, vinyl, rain, cafe, night, random)
 
 # Workflow options
 force=false       # Overwrite existing files

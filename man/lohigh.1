@@ -41,6 +41,14 @@ Disable automatic volume normalization, preserving original audio levels.
 .B \-\-loop=\fIN\fR
 Repeat the first input file N times before mixing. Useful for extending short ambient loops.
 Example: \fB\-\-loop=3\fR
+.TP
+.B \-\-ambient=\fINAME\fR
+Choose which ambient file to use. Built-in options: \fBambient\fR (default), \fBvinyl\fR, \fBrain\fR, \fBcafe\fR, \fBnight\fR, or \fBrandom\fR.
+You can also specify a custom file path. Use \fB\-\-list\-ambients\fR to see available files.
+Example: \fB\-\-ambient=vinyl\fR
+.TP
+.B \-\-list\-ambients
+List all available ambient files and exit. Shows which ambient options are currently available.
 .SS "Workflow & UX"
 .TP
 .B \-\-force
@@ -131,6 +139,21 @@ lohigh \-\-playlist=playlist.txt final_mix.wav \\
 .RE
 .fi
 .SS "Creative Workflows"
+Choose different ambient sounds:
+.PP
+.nf
+.RS
+# Use vinyl crackle
+lohigh input.wav output.wav \-\-ambient=vinyl
+
+# Random ambient each time
+lohigh \-\-batch *.wav \-\-ambient=random \-\-output\-dir=./mixed/
+
+# See what's available
+lohigh \-\-list\-ambients
+.RE
+.fi
+.PP
 Extend short ambient loops:
 .PP
 .nf
