@@ -1,0 +1,23 @@
+# lohigh configuration file example
+# Copy to ~/.lohighrc to use
+# Command line arguments override these settings
+
+# Audio processing defaults
+fade=1.5          # Crossfade duration in seconds
+level=0.8         # Normalization level (0.0 to 1.0)
+loop=1            # Loop count for first file
+
+# Workflow options
+force=false       # Overwrite existing files
+reverse=false     # Swap file order
+shuffle=false     # Randomize file order
+
+# Batch processing
+output-dir=./lofi_mixes/   # Default output directory for batch mode
+
+# Note: Boolean values should be "true" or "false" (case insensitive)
+# Note: Paths and strings can be quoted or unquoted
+# Note: Lines starting with # are comments
+# Note: Empty lines are ignored
+
+# Priority: CLI args > config file > built-in defaults

@@ -193,7 +193,24 @@ ffmpeg \-i input.mp3 \-f wav \- | \\
 Default ambient sound file used when processing a single input file.
 .TP
 .I ~/.lohighrc
-Optional user configuration file (future feature).
+Optional user configuration file. Settings in this file are used as defaults and can be overridden by command line arguments.
+.PP
+Example ~/.lohighrc:
+.PP
+.nf
+.RS
+# Audio defaults
+fade=1.5
+level=0.8
+loop=1
+
+# Workflow
+force=false
+output\-dir=./lofi_mixes/
+.RE
+.fi
+.PP
+Priority: command line args > config file > built-in defaults
 .SH EXIT STATUS
 .TP
 .B 0
