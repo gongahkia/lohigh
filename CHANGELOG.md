@@ -8,7 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- CHANGELOG.md following Keep a Changelog format
+- **Documentation Suite**:
+  - CHANGELOG.md following Keep a Changelog format
+  - CONTRIBUTING.md with community guidelines and philosophy
+  - TROUBLESHOOTING.md with comprehensive problem-solving guide
+  - examples/ directory with usage examples and creative workflows
+  - Audio compatibility matrix in README
+- **Distribution & Packaging**:
+  - JAR packaging support with `make jar` command
+  - Standalone JAR with embedded assets via `make jar-with-assets`
+  - System-wide installation with `make install-jar`
+- **Creative & Workflow Features**:
+  - Playlist mode (--playlist=FILE) for sequential file mixing
+  - Loop/repetition flag (--loop=N) to repeat files N times
+  - JSON output mode (--json) for machine-readable results
+- Integration support for scripts and automated workflows
 
 ## [3.0.0] - 2025-12-09
 
