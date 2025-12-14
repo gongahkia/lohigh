@@ -7,122 +7,40 @@ DJ Sacabambaspis lets you take lofi on the go.
 
 ![](asset/fish.jpg)
 
-## features
-
-✨ **Professional Audio Quality**
-- Crossfade support for smooth transitions (eliminates clicks/pops)
-- Automatic volume normalization for consistent output levels
-- Comprehensive input validation and error handling
-
-🚀 **Workflow Efficiency**
-- Batch processing mode for multiple files
-- Safe overwrite protection
-- Helpful error messages with actionable suggestions
-
-🎵 **Simple & Powerful**
-- Single-purpose design with professional polish
-- No external dependencies (pure Java)
-- Cross-platform compatibility
-
 ## installation
+
+Note that `lohigh` requires Java 8 or higher to run.
 
 ```console
 $ git clone https://github.com/gongahkia/lohigh
 $ cd lohigh
 $ make config
+$ make build
 ```
 
 ## usage
 
-### Basic Usage
-
 ```console
-$ make build
-$ java -cp src Main input.wav output.wav
-# DJ Sacabambaspis mixes up a lofi beat with ambient.wav
-
-$ java -cp src Main input1.wav input2.wav output.wav
-# You are the DJ - mix any two files together
+$ java -cp src Main input.wav output.wav # DJ Sacabambaspis mixes up a lofi beat with ambient.wav
+$ java -cp src Main input1.wav input2.wav output.wav # DJ Sacabambaspis mixes any two files together
+$ java -cp src Main input.wav output.wav --fade=1.5 # DJ Sacabambaspis applies a 1.5 second crossfade
+$ java -cp src Main input.wav output.wav --level=0.8 # DJ Sacabambaspis normalizes the audio track to 80% of maximum volume 
+$ java -cp src Main input.wav output.wav --no-normalize # DJ Sacabambaspis disables normalization 
 ```
 
-### Advanced Features
+## CLI options
 
-**Crossfade** - Smooth transitions between audio files:
-```console
-$ java -cp src Main input.wav output.wav --fade=1.5
-# Apply 1.5 second crossfade
-```
+### audio processing
 
-**Volume Normalization** - Consistent output levels:
-```console
-$ java -cp src Main input.wav output.wav --level=0.8
-# Normalize to 80% of maximum volume (default)
-
-$ java -cp src Main input.wav output.wav --no-normalize
-# Disable normalization
-```
-
-**Batch Processing** - Process multiple files efficiently:
-```console
-$ java -cp src Main --batch song1.wav song2.wav song3.wav
-# Process multiple files with default ambient
-
-$ java -cp src Main --batch *.wav --output-dir=./lofi_mixes/
-# Process all WAV files in current directory
-
-$ java -cp src Main --batch track*.wav --fade=1.5 --level=0.9 --force
-# Batch process with custom settings
-```
-
-**Combine Multiple Features**:
-```console
-$ java -cp src Main input.wav output.wav --fade=2.0 --level=0.85 --force
-# Crossfade + custom normalization + overwrite existing file
-```
-
-**More Advanced Features**:
-
-```console
-# Reverse mode - swap file order
-$ java -cp src Main input.wav output.wav --reverse
-# Result: input.wav + ambient.wav (beat after content)
-
-# Verbose mode - detailed processing info
-$ java -cp src Main input.wav output.wav -v
-# Shows normalization levels, crossfade info, etc.
-
-# Quiet mode - silent operation
-$ java -cp src Main input.wav output.wav -q
-# Perfect for scripts and automation
-
-# Dry run - preview without processing
-$ java -cp src Main input.wav output.wav --dry-run
-# Shows file info and settings without processing
-
-# Preview mode - test with first N seconds
-$ java -cp src Main input.wav output.wav --preview=30
-# Process only first 30 seconds for quick testing
-
-# Shuffle mode - random file ordering
-$ java -cp src Main --batch *.wav --shuffle
-# Creative serendipitous mixing
-
-# Progress indicators - automatic for large files
-# Automatically shown for files > 10MB
-# Reading file 1: [=====>    ] 45%
-```
-
-## command line options
-
-### Audio Processing
-| Flag | Description | Example |
+| flag | description | eg. |
 |------|-------------|---------|
 | `--fade=<seconds>` | Apply crossfade between files | `--fade=1.5` |
 | `--level=<0.0-1.0>` | Normalize audio to target level (default: 0.8) | `--level=0.9` |
 | `--no-normalize` | Disable automatic normalization | `--no-normalize` |
 
-### Workflow & UX
-| Flag | Description | Example |
+### workflow & UX
+
+| flag | description | eg. |
 |------|-------------|---------|
 | `--force` | Overwrite existing output files | `--force` |
 | `--reverse` | Swap file order (beat after content) | `--reverse` |
@@ -131,124 +49,14 @@ $ java -cp src Main --batch *.wav --shuffle
 | `--dry-run` | Show what would be done without processing | `--dry-run` |
 | `--preview=<seconds>` | Process only first N seconds | `--preview=30` |
 
-### Batch Processing
-| Flag | Description | Example |
+### batch processing
+
+| flag | description | eg. |
 |------|-------------|---------|
 | `--batch` | Enable batch processing mode | `--batch` |
 | `--output-dir=<dir>` | Output directory for batch mode | `--output-dir=./mixed/` |
 | `--shuffle` | Randomize file order for creative mixing | `--shuffle` |
 
-## requirements
+## other notes
 
-- Java 8 or higher
-- No external dependencies (uses standard `javax.sound.sampled` library)
-
-## audio compatibility
-
-lohigh works with a variety of WAV file configurations. Here's what's supported:
-
-### Compatibility Matrix
-
-| Format | Sample Rate | Bit Depth | Channels | Status | Notes |
-|--------|-------------|-----------|----------|--------|-------|
-| WAV (PCM) | Any | 16-bit | Mono (1) | ✅ Fully Supported | Recommended format |
-| WAV (PCM) | Any | 16-bit | Stereo (2) | ✅ Fully Supported | Most common format |
-| WAV (PCM) | Any | 24-bit | Mono/Stereo | ⚠️ Partial | May work but not tested extensively |
-| WAV (PCM) | Any | 32-bit | Mono/Stereo | ⚠️ Partial | May work but not tested extensively |
-| MP3 | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.mp3 output.wav` |
-| FLAC | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.flac output.wav` |
-| OGG/Vorbis | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.ogg output.wav` |
-| M4A/AAC | Any | Any | Any | ❌ Not Supported | Convert with: `ffmpeg -i input.m4a output.wav` |
-
-### Important Notes
-
-**Sample Rate Matching Required**
-- Both input files must have the **same sample rate** (e.g., both 44100 Hz)
-- Common rates: 22050 Hz, 44100 Hz, 48000 Hz
-- Mismatched rates will produce an error with conversion instructions
-
-**Channel Matching Required**
-- Both input files must have the **same number of channels**
-- Both mono (1 channel) or both stereo (2 channels)
-
-**Bit Depth**
-- 16-bit PCM is the recommended and most tested format
-- 24-bit and 32-bit may work but are not extensively tested
-- Output will match the input bit depth
-
-### Converting Audio Files
-
-Use ffmpeg to convert files to compatible formats:
-
-```bash
-# Convert to 44.1kHz stereo 16-bit WAV (recommended)
-ffmpeg -i input.mp3 -ar 44100 -ac 2 -sample_fmt s16 output.wav
-
-# Convert to match an existing file's format
-ffmpeg -i file_to_convert.flac -ar 48000 -ac 2 output.wav
-
-# Batch convert all MP3s in a directory
-for f in *.mp3; do ffmpeg -i "$f" -ar 44100 -ac 2 "${f%.mp3}.wav"; done
-```
-
-### Checking File Compatibility
-
-Use the `--dry-run` flag to check file compatibility before processing:
-
-```bash
-java -cp src Main file1.wav file2.wav output.wav --dry-run -v
-```
-
-This shows:
-- Sample rate, bit depth, and channels for each file
-- Whether the files are compatible
-- Estimated output size
-
-## development
-
-### Building
-
-```console
-$ make build      # Standard build
-$ make debug      # Debug build with symbols and verbose output
-$ make config     # Check Java installation
-```
-
-### Debug Mode
-
-For troubleshooting and development:
-```console
-$ make debug
-$ java -Xdebug -cp src Main input.wav output.wav -v
-```
-
-## what's new in v3.0
-
-🎉 **Migrated from C++ to Java**
-- Cross-platform compatibility
-- No external dependencies (removed libsndfile requirement)
-- Easier installation and distribution
-
-🎚️ **Professional Audio Features (Categories 1 & 5)**
-- Crossfade support for click-free transitions (1.1)
-- Volume normalization for consistent output (1.2)
-- Comprehensive input validation (5.1)
-- Enhanced error messages with suggestions (5.2)
-- Safe overwrite protection (5.4)
-- Atomic file writing to prevent corruption (5.5)
-
-⚡ **Workflow & UX Improvements (Category 3)**
-- Batch processing mode for multiple files (3.1)
-- Reverse mode flag for creative flexibility (3.2)
-- Progress indicators for large files (3.3)
-- Preview mode for quick testing (3.4)
-- Dry run mode for validation (3.5)
-- Verbose and quiet modes (3.6)
-
-🎨 **Creative Features (Category 4)**
-- Shuffle mode for serendipitous mixing (4.4)
-
-🛠️ **Developer Experience (Category 6)**
-- Debug build mode in Makefile (6.5)
-
-
+`lohigh` used to exist as a single-file C++ program, but has since been refactored to a Java project.
